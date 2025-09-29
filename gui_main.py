@@ -319,7 +319,29 @@ class LumericalGUI:
         # Actualizar visualización de información
         self.update_info_display()
         
-        # Aquí más adelante ejecutaremos la simulación
+        # NUEVO: Ejecutar simulación
+        from GUI.simulation_window import SimulationWindow
+        SimulationWindow(
+            parent=self.root,
+            api=self.api,
+            params=params,
+            callback=self.on_simulation_complete
+        )
+    
+    def on_simulation_complete(self, success, params=None, error=None):
+        """
+        Callback cuando termina la simulación
+        
+        Args:
+            success: Si la simulación fue exitosa
+            params: Parámetros usados
+            error: Mensaje de error si hubo fallo
+        """
+        if success:
+            print("\n✓ Simulación completada exitosamente")
+            # Aquí más adelante mostraremos resultados
+        else:
+            print(f"\n✗ Simulación falló: {error}")
         
     def run(self):
         """Ejecutar la aplicación"""
