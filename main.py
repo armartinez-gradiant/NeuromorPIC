@@ -1,14 +1,9 @@
-from CLI.main import CLI
-from API.main import API
+"""
+Punto de entrada principal del sistema de simulación
+Lanza la interfaz gráfica
+"""
 
-def main():
-    Api = API()
-    Api.load_cache()
-    defaults = Api.get_param_suggestions()
-
-    Cli = CLI(defaults)
-    params = Cli.run()
-    Api.run(params)
+from GUI import gui_main
 
 if __name__ == '__main__':
-    main()
+    gui_main.main()

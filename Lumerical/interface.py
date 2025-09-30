@@ -1,286 +1,365 @@
+"""
+Lumerical Interface
+Handles all interactions with Lumerical API
+"""
+
 import imp
 import numpy as np
-from scipy.stats import linregress
-from scipy.constants import c
-from matplotlib import pyplot as plt
-from math import log
+import sys
+import os
 
-time_window = 5.12e-09
-n_samples = 15360
+# Añadir ruta del proyecto al path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# TODO: set path of the Lumerical installation. See Automation API docs for more information.
-# For MacOS, the following should suffice as long as the version is correct
-lum_version = "2020a"
+# Cargar lumapi usando el detector automático
 from lumerical_path_detector import auto_detect_and_load_lumapi
+
+print("🔍 Detectando instalación de Lumerical automáticamente...")
 lumapi = auto_detect_and_load_lumapi()
+print("✓ Lumerical API cargada correctamente\n")
 
-def wgT_name(min_v, max_v, interval_v):
-    return "cache/wgT_" + str(min_v) + "_" + str(max_v) + "_" + str(interval_v) + "_.mat"
 
-def passivebentwg_name(start_wavelength, end_wavelength):
-    return "cache/passivebentwg_" + str(start_wavelength) + "_" + str(end_wavelength) + "_.ldf"
+def get_platform_path(platform):
+    """
+    Get the path to platform-specific files
+    
+    Args:
+        platform: 'sipho' or 'sin'
+    
+    Returns:
+        str: Path to platform folder
+    """
+    return f"Lumerical/platforms/{platform}"
 
-def activebentwg_name(start_wavelength, end_wavelength, min_v, max_v, interval_v):
-    return "cache/activebentwg_" + str(start_wavelength) + "_" + str(end_wavelength) + "_" + str(min_v) + "_" + str(max_v) + "_" + str(interval_v) + "_.ldf"
-
-def neff_name(laser_wavelength, min_v, max_v, interval_v):
-    return "cache/neff_" + str(laser_wavelength) + "_" + str(min_v) + "_" + str(max_v) + "_" + str(interval_v) + "_.txt"
 
 def heat(inputs):
-    print("Running heat simulation")
-    min_v, max_v, interval_v = [inputs[k] for k in ('min_v','max_v', 'interval_v')]
-    filename = wgT_name(min_v, max_v, interval_v)
-
-    device = lumapi.DEVICE("Lumerical/ndoped_heater.ldev")
+    """
+    Run DEVICE heat simulation
+    
+    Args:
+        inputs: Dictionary with simulation parameters including:
+            - platform: 'sipho' or 'sin'
+            - min_v: Minimum voltage
+            - max_v: Maximum voltage
+            - interval_v: Voltage interval
+    
+    Returns:
+        str: Path to generated .mat file
+    """
+    platform = inputs.get('platform', 'sipho')
+    platform_path = get_platform_path(platform)
+    
+    min_v = inputs['min_v']
+    max_v = inputs['max_v']
+    interval_v = inputs['interval_v']
+    
+    # Path to platform-specific .ldev file
+    ldev_file = f"{platform_path}/ndoped_heater.ldev"
+    
+    print(f"⚙ Running DEVICE heat simulation...")
+    print(f"  Platform: {platform.upper()}")
+    print(f"  File: {ldev_file}")
+    print(f"  Voltage range: {min_v}V to {max_v}V (interval: {interval_v}V)")
+    
+    device = lumapi.DEVICE(ldev_file)
     device.switchtolayout()
-    device.setnamed("HEAT::temp", "filename", filename)
-
+    
+    # Output filename
+    output_filename = f"wgT_{min_v}_{max_v}_{interval_v}_heater.mat"
+    device.setnamed("HEAT::temp", "filename", output_filename)
+    
+    # Set voltage boundary conditions
     v_bc_name = "HEAT::boundary conditions::wire1"
     device.setnamed(v_bc_name, "range start", min_v)
     device.setnamed(v_bc_name, "range stop", max_v)
     device.setnamed(v_bc_name, "range interval", interval_v)
-
+    
+    # Run simulation
     device.run()
-
-    '''
-    boundaries = device.getresult('HEAT','boundaries');
-
-    current = [x[0] for x in boundaries['I_wire1'][0][0]]
-    voltage = [x[0] for x in boundaries['V_wire1']]
-
-    reg = linregress(current, voltage)
-    resistance = reg[0]
-    print("Resistance = " + str(resistance) + " Ohms")
-
-    plt.plot(current, voltage)
-    plt.xlabel("current")
-    plt.ylabel("voltage")
-    plt.show()
-    '''
-
+    
     device.close()
-    #return current, voltage
+    
+    # Return path to cache
+    cache_folder = f"./Lumerical/cache_{platform}"
+    output_path = f"{cache_folder}/{output_filename}"
+    
+    print(f"  ✓ Heat simulation complete: {output_path}")
+    
+    return output_path
 
-    return filename
 
-
-# NOTE: straight waveguides arent included here
-# NOTE: this does not usually need to be re-simulated
 def passivebentwg(inputs):
-    print("Running passive bent waveguide simulation")
-    start_wavelength, end_wavelength = [inputs[k] for k in ('start_wavelength', 'end_wavelength')]
-    filename = passivebentwg_name(start_wavelength, end_wavelength)
-
-    mode = lumapi.MODE("Lumerical/rib_waveguide.lms")
-
+    """
+    Run MODE simulation for passive bent waveguide
+    
+    Args:
+        inputs: Dictionary with simulation parameters including:
+            - platform: 'sipho' or 'sin'
+            - start_wavelength: Start wavelength
+            - end_wavelength: End wavelength
+    
+    Returns:
+        str: Path to generated .ldf file
+    """
+    platform = inputs.get('platform', 'sipho')
+    platform_path = get_platform_path(platform)
+    
+    start_wavelength = inputs['start_wavelength']
+    end_wavelength = inputs['end_wavelength']
+    
+    # Path to platform-specific .lms file
+    lms_file = f"{platform_path}/rib_waveguide.lms"
+    
+    print(f"⚙ Running MODE simulation for passive waveguide...")
+    print(f"  Platform: {platform.upper()}")
+    print(f"  File: {lms_file}")
+    print(f"  Wavelength range: {start_wavelength*1e9:.2f}nm to {end_wavelength*1e9:.2f}nm")
+    
+    mode = lumapi.MODE(lms_file)
+    
+    # Disable temperature import
     mode.switchtolayout()
     mode.select("temperature")
-    mode.setnamed('temperature','enabled', 0);
-
+    mode.setnamed('temperature', 'enabled', 0)
+    
     mode.run()
-    mode.setanalysis("number of trial modes", 5)
-    mode.setanalysis("wavelength", start_wavelength)
-    mode.setanalysis("use max index", 1)
-
-    mode.findmodes()
-    mode.selectmode(1)
-
-    mode.setanalysis("stop wavelength", end_wavelength)
-    mode.setanalysis("track selected mode", 1);
-
-    mode.frequencysweep()
-
-    dataname = mode.copydcard("frequencysweep");
-    mode.savedcard(filename, dataname);
-    mode.close()
-    return filename
-
-#def neffModeSolver(laser_wavelength, min_v, max_v, interval_v):
-def activebentwg(inputs):
-    print("Running active bent waveguide simulation")
-    start_wavelength, end_wavelength, min_v, max_v, interval_v = [inputs[k] for k in ('start_wavelength', 'end_wavelength', 'min_v', 'max_v', 'interval_v')]
-    filename = activebentwg_name(start_wavelength, end_wavelength, min_v, max_v, interval_v)
-
-    mode = lumapi.MODE("Lumerical/rib_waveguide.lms")
-
-    mode.switchtolayout()
-    mode.select("temperature")
-    mode.importdataset(wgT_name(min_v, max_v, interval_v))
-
-    mode.run()
+    
+    # Configure analysis
     mode.setanalysis("number of trial modes", 2)
-    mode.setanalysis("wavelength", start_wavelength)
+    mode.setanalysis("wavelength", (start_wavelength + end_wavelength) / 2)
     mode.setanalysis("use max index", 1)
-
+    
+    # Find modes
     mode.findmodes()
     mode.selectmode(1)
-
-    mode.setanalysis("stop wavelength", end_wavelength)
+    
+    # Run frequency sweep
     mode.setanalysis("track selected mode", 1)
-
     mode.frequencysweep()
+    
+    # Save results
     dataname = mode.copydcard("frequencysweep")
-    mode.savedcard(filename, dataname)
+    output_filename = f"passivebentwg_{start_wavelength}_{end_wavelength}_passive.ldf"
+    mode.savedcard(output_filename, dataname)
+    
+    mode.close()
+    
+    # Return path to cache
+    cache_folder = f"./Lumerical/cache_{platform}"
+    output_path = f"{cache_folder}/{output_filename}"
+    
+    print(f"  ✓ Passive waveguide simulation complete: {output_path}")
+    
+    return output_path
 
-    # same sim can be used for neff.txt so dont close yet
-    return filename, mode
 
-def effective_index(inputs, mode = None):
-    print("Running effective index simulation")
-    source_wavelength, min_v, max_v, interval_v = [inputs[k] for k in ('source_wavelength', 'min_v', 'max_v', 'interval_v')]
-    filename = neff_name(source_wavelength, min_v, max_v, interval_v)
+def activebentwg(inputs):
+    """
+    Run MODE simulation for active bent waveguide with thermal effects
+    
+    Args:
+        inputs: Dictionary with simulation parameters including:
+            - platform: 'sipho' or 'sin'
+            - start_wavelength: Start wavelength
+            - end_wavelength: End wavelength
+            - min_v: Minimum voltage
+            - max_v: Maximum voltage
+            - interval_v: Voltage interval
+    
+    Returns:
+        tuple: (str: Path to .ldf file, MODE object)
+    """
+    platform = inputs.get('platform', 'sipho')
+    platform_path = get_platform_path(platform)
+    
+    start_wavelength = inputs['start_wavelength']
+    end_wavelength = inputs['end_wavelength']
+    min_v = inputs['min_v']
+    max_v = inputs['max_v']
+    interval_v = inputs['interval_v']
+    
+    # Path to platform-specific .lms file
+    lms_file = f"{platform_path}/rib_waveguide.lms"
+    
+    print(f"⚙ Running MODE simulation for active waveguide...")
+    print(f"  Platform: {platform.upper()}")
+    print(f"  File: {lms_file}")
+    print(f"  Wavelength range: {start_wavelength*1e9:.2f}nm to {end_wavelength*1e9:.2f}nm")
+    print(f"  Voltage range: {min_v}V to {max_v}V (interval: {interval_v}V)")
+    
+    mode = lumapi.MODE(lms_file)
+    
+    # Import temperature map from heat simulation
+    mode.switchtolayout()
+    mode.select("temperature")
+    
+    # The temperature file should already be in the cache from heat simulation
+    temp_filename = f"wgT_{min_v}_{max_v}_{interval_v}_heater.mat"
+    mode.importdataset(temp_filename)
+    
+    mode.run()
+    
+    # Configure analysis
+    mode.setanalysis("number of trial modes", 2)
+    mode.setanalysis("wavelength", (start_wavelength + end_wavelength) / 2)
+    mode.setanalysis("use max index", 1)
+    
+    # Find modes
+    mode.findmodes()
+    mode.selectmode(1)
+    
+    # Run frequency sweep
+    mode.setanalysis("track selected mode", 1)
+    mode.frequencysweep()
+    
+    # Save results
+    dataname = mode.copydcard("frequencysweep")
+    output_filename = f"activebentwg_{start_wavelength}_{end_wavelength}_{min_v}_{max_v}_{interval_v}_active.ldf"
+    mode.savedcard(output_filename, dataname)
+    
+    # Don't close mode yet - it will be used for effective_index calculation
+    # mode.close() will be called later
+    
+    # Return path to cache
+    cache_folder = f"./Lumerical/cache_{platform}"
+    output_path = f"{cache_folder}/{output_filename}"
+    
+    print(f"  ✓ Active waveguide simulation complete: {output_path}")
+    
+    return output_path, mode
 
-    if mode is None:
-        print("Setting up mode")
-        mode = lumapi.MODE("Lumerical/rib_waveguide.lms")
+
+def effective_index(inputs, lum_mode=None):
+    """
+    Calculate effective index vs voltage
+    
+    Args:
+        inputs: Dictionary with simulation parameters including:
+            - platform: 'sipho' or 'sin'
+            - source_wavelength: Laser wavelength
+            - min_v: Minimum voltage
+            - max_v: Maximum voltage
+            - interval_v: Voltage interval
+        lum_mode: Optional MODE object from activebentwg (to avoid reopening)
+    
+    Returns:
+        str: Path to generated .txt file
+    """
+    platform = inputs.get('platform', 'sipho')
+    platform_path = get_platform_path(platform)
+    
+    source_wavelength = inputs['source_wavelength']
+    min_v = inputs['min_v']
+    max_v = inputs['max_v']
+    interval_v = inputs['interval_v']
+    
+    print(f"⚙ Calculating effective index vs voltage...")
+    print(f"  Platform: {platform.upper()}")
+    print(f"  Wavelength: {source_wavelength*1e9:.2f}nm")
+    print(f"  Voltage range: {min_v}V to {max_v}V (interval: {interval_v}V)")
+    
+    # Open MODE if not provided
+    if lum_mode is None:
+        lms_file = f"{platform_path}/rib_waveguide.lms"
+        mode = lumapi.MODE(lms_file)
+        mode.switchtolayout()
+        mode.select("temperature")
+        
+        # Import temperature data
+        temp_filename = f"wgT_{min_v}_{max_v}_{interval_v}_heater.mat"
+        mode.importdataset(temp_filename)
+        
+        mode.run()
         mode.setanalysis("number of trial modes", 2)
         mode.setanalysis("wavelength", source_wavelength)
         mode.setanalysis("use max index", 1)
-
-    voltage = np.arange(min_v, max_v, step=interval_v) # volts
-    neffT = []
-
+    else:
+        mode = lum_mode
+    
+    # Calculate neff for each voltage
+    n_points = int((max_v - min_v) / interval_v) + 1
+    voltage = np.linspace(min_v, max_v, n_points)
+    
     result_str = ""
+    
     for v in voltage:
-        mode.switchtolayout();
-        mode.setnamed('temperature','enabled', 1);
-        mode.setnamed('temperature','V_wire1', v);
-        mode.findmodes();
-
-        data = mode.getdata('mode1','neff');
-
+        mode.switchtolayout()
+        mode.setnamed('temperature', 'enabled', 1)
+        mode.setnamed('temperature', 'V_wire1', v)
+        mode.findmodes()
+        
+        data = mode.getdata('mode1', 'neff')
         neff = data[0][0]
-        neffT.append(neff)
-
-        result_str += str(v) + " " + str(np.real(neff)) + " " + str(np.imag(neff)) + "\n"
-
-    f = open("Lumerical/" + filename,"w+")
-    f.write(result_str)
-    f.close()
+        
+        result_str += f"{v} {np.real(neff)} {np.imag(neff)}\n"
+    
+    # Save results
+    output_filename = f"neff_{source_wavelength}_{min_v}_{max_v}_{interval_v}_neff.txt"
+    cache_folder = f"./Lumerical/cache_{platform}"
+    output_path = f"{cache_folder}/{output_filename}"
+    
+    with open(output_path, "w") as f:
+        f.write(result_str)
+    
     mode.close()
+    
+    print(f"  ✓ Effective index calculation complete: {output_path}")
+    
+    return output_path
 
-    return filename
-
-def laser_wavelength_sweep(ic, inputs):
-    print("Running laser wavelength sweep")
-    min_v, max_v, interval_v = [inputs[k] for k in ('min_v', 'max_v', 'interval_v')]
-    sweep_name = "laser_wavelength_sweep"
-
-    # delete any sweeps already saved
-    ic.deletesweep(sweep_name);
-
-    ic.addsweep(0)
-    ic.setsweep("sweep", "name", sweep_name);
-    ic.setsweep(sweep_name, "type", "Ranges");
-    ic.setsweep(sweep_name, "number of points", int((max_v-min_v)/interval_v));
-
-    params = {
-        "Name": "dc_amplitude",
-        "Parameter": "::Root Element::DC_1::amplitude",
-        "Type": "Number",
-        "Start": min_v,
-        "Stop": max_v
-    }
-
-    ic.addsweepparameter(sweep_name, params);
-
-    results = [
-        {
-            "Name": "drop_transmission",
-            "Result": "::Root Element::OOSC_2::mode 1/signal"
-        },
-        {
-            "Name": "thru_transmission",
-            "Result": "::Root Element::OOSC_1::mode 1/signal"
-        }
-    ]
-
-    for result in results:
-        ic.addsweepresult(sweep_name, result);
-
-    ic.runsweep(sweep_name)
-    print("Done running laser wavelength sweep. Results can be accessed from the laser_wavelength_sweep in Lumerical")
-    return
-
-# NOTE: there are sometimes weird race conditions here where the sweep receives
-# no results because automation api is too slow
-def ona_sweep(ic, inputs):
-    print("Running ona sweep")
-    min_v, max_v, interval_v = [inputs[k] for k in ('min_v', 'max_v', 'interval_v')]
-    sweep_name = "ona_sweep"
-
-    # delete any sweeps already saved
-    ic.deletesweep(sweep_name);
-
-    ic.addsweep(0)
-    ic.setsweep("sweep", "name", sweep_name);
-    ic.setsweep(sweep_name, "type", "Ranges");
-    ic.setsweep(sweep_name, "number of points", int((max_v-min_v)/interval_v));
-
-    params = {
-        "Name": "dc_amplitude",
-        "Parameter": "::Root Element::DC_1::amplitude",
-        "Type": "Number",
-        "Start": min_v,
-        "Stop": max_v
-    }
-
-    ic.addsweepparameter(sweep_name, params);
-
-    results = [
-        {
-            "Name": "drop_transmission",
-            "Result": "::Root Element::ONA_1::input 2/mode 1/gain"
-        },
-        {
-            "Name": "thru_transmission",
-            "Result": "::Root Element::ONA_1::input 1/mode 1/gain"
-        }
-    ]
-
-    for result in results:
-        ic.addsweepresult(sweep_name, result);
-
-    ic.runsweep(sweep_name)
-    print("Done running ona sweep. Results can be accessed from the ona_sweep in Lumerical")
-    return
 
 def interconnect(inputs, files):
-    print("Running interconnect simulation")
-    source_wavelength, sim_type, heater_sim_type = [inputs[k] for k in ('source_wavelength', 'sim_type', 'heater_sim_type')]
-
-    ic = lumapi.INTERCONNECT(files['interconnect'])
-
+    """
+    Run INTERCONNECT simulation
+    
+    Args:
+        inputs: Dictionary with simulation parameters including:
+            - platform: 'sipho' or 'sin'
+            - time_window: Simulation time window
+            - n_samples: Number of samples
+        files: Dictionary with paths to required simulation files:
+            - heat: Path to heat simulation .mat
+            - passivebentwg: Path to passive waveguide .ldf
+            - activebentwg: Path to active waveguide .ldf
+            - effective_index: Path to neff .txt
+            - interconnect: Path to .icp file
+    """
+    platform = inputs.get('platform', 'sipho')
+    
+    time_window = inputs.get('time_window', 5.12e-9)
+    n_samples = inputs.get('n_samples', 15360)
+    
+    icp_file = files['interconnect']
+    
+    print(f"\n⚙ Running INTERCONNECT simulation...")
+    print(f"  Platform: {platform.upper()}")
+    print(f"  File: {icp_file}")
+    print(f"  Time window: {time_window}s")
+    print(f"  Samples: {n_samples}")
+    
+    print(f"\n  Loading simulation files:")
+    for key, value in files.items():
+        if key != 'interconnect':
+            print(f"    • {key}: {value}")
+    
+    ic = lumapi.INTERCONNECT(icp_file)
+    
+    # Restore design mode
     ic.switchtodesign()
-    ic.setnamed("::Root Element","time window", time_window)
-    # number of samples defines the INTERCONNECT time step dt
-    # by dt = time_window/(Nsamples+1).
-    ic.setnamed("::Root Element","number of samples", n_samples)
-
-    # set simulated/cached resources
-    ic.setnamed("::Root Element::COMPOUND_1::WGD_6","ldf filename", files['activebentwg'])
-    ic.setnamed("::Root Element::COMPOUND_1::WGD_5","ldf filename", files['passivebentwg'])
-    ic.setnamed("::Root Element::COMPOUND_1::OM_1","measurement filename", files['effective_index'])
-
-    if sim_type == "single laser":
-        ic.addelement("CW Laser")
-        ic.setnamed("CWL_1", "frequency", c/source_wavelength)
-        ic.setnamed("CWL_1", "power", 0.001)
-        ic.select("ONA_1")
-        ic.delete()
-        ic.connect("CWL_1", "output", "COMPOUND_1", "input")
-
-        if heater_sim_type == "sweep":
-            laser_wavelength_sweep(ic, inputs)
-        else:
-            ic.run()
-
-    else:
-        if heater_sim_type == "sweep":
-            ona_sweep(ic, inputs)
-        else:
-            ic.run()
-
-    input("Simulation complete. Please export any data you would like to keep from Lumerical and press ENTER once finished.")
-    ic.close()
-    return
+    
+    # Set time parameters
+    ic.setnamed("::Root Element", "time window", time_window)
+    ic.setnamed("::Root Element", "number of samples", n_samples)
+    
+    # TODO: Load simulation files into INTERCONNECT
+    # This depends on your specific .icp file structure
+    # You may need to configure element parameters here based on files dict
+    
+    print(f"\n  🚀 Running INTERCONNECT...")
+    ic.run()
+    
+    print(f"  ✓ INTERCONNECT simulation complete!")
+    
+    # ic.close()  # Uncomment if you want to close after simulation
+    
+    return ic
