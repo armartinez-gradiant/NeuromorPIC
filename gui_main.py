@@ -67,12 +67,20 @@ class LumericalGUI:
         try:
             logo_path = os.path.join("GUI", "assets", "images", "gradiant_logo.png")
             logo_image = Image.open(logo_path)
+            
+            # Calculate size maintaining aspect ratio
+            # Target height: 45px
+            target_height = 45
+            original_width, original_height = logo_image.size
+            aspect_ratio = original_width / original_height
+            target_width = int(target_height * aspect_ratio)
+            
             self.logo = ctk.CTkImage(
                 light_image=logo_image,
                 dark_image=logo_image,
-                size=(150, 50)
+                size=(target_width, target_height)
             )
-            print(f"✓ Logo loaded from: {logo_path}")
+            print(f"✓ Logo loaded from: {logo_path} (size: {target_width}x{target_height})")
         except Exception as e:
             print(f"⚠️  Could not load logo: {e}")
             self.logo = None
@@ -545,6 +553,32 @@ class LumericalGUI:
             './results'
         )
         
+        # Checkbox to keep INTERCONNECT open
+        checkbox_frame = ctk.CTkFrame(output_card, fg_color="transparent")
+        checkbox_frame.pack(fill="x", padx=30, pady=10)
+        
+        self.keep_interconnect_open_var = ctk.BooleanVar(value=False)
+        
+        self.keep_interconnect_checkbox = ctk.CTkCheckBox(
+            checkbox_frame,
+            text="Keep INTERCONNECT window open after simulation",
+            variable=self.keep_interconnect_open_var,
+            font=ctk.CTkFont(size=13),
+            fg_color=THEME_COLOR,
+            hover_color=THEME_COLOR_HOVER,
+            text_color=TEXT_PRIMARY
+        )
+        self.keep_interconnect_checkbox.pack(anchor="w")
+        
+        help_label = ctk.CTkLabel(
+            checkbox_frame,
+            text="ℹ️  Useful for debugging or manual inspection of results",
+            font=ctk.CTkFont(size=11),
+            text_color=TEXT_SECONDARY,
+            anchor="w"
+        )
+        help_label.pack(anchor="w", pady=(5, 0))
+        
         # Action buttons
         button_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent", height=80)
         button_frame.pack(fill="x", pady=30)
@@ -655,7 +689,8 @@ class LumericalGUI:
             'time_window': float(self.time_window_entry.get()),
             'n_samples': int(self.n_samples_entry.get()),
             'output_dir': self.output_dir_entry.get(),
-            'platform': self.selected_platform
+            'platform': self.selected_platform,
+            'keep_interconnect_open': self.keep_interconnect_open_var.get()
         }
         
         # Parameters according to simulation type

@@ -7,6 +7,7 @@ import imp
 import numpy as np
 import sys
 import os
+import time
 
 # Añadir ruta del proyecto al path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -317,6 +318,7 @@ def interconnect(inputs, files):
             - platform: 'sipho' or 'sin'
             - time_window: Simulation time window
             - n_samples: Number of samples
+            - keep_interconnect_open: Boolean to keep window open after simulation
         files: Dictionary with paths to required simulation files:
             - heat: Path to heat simulation .mat
             - passivebentwg: Path to passive waveguide .ldf
@@ -328,6 +330,7 @@ def interconnect(inputs, files):
     
     time_window = inputs.get('time_window', 5.12e-9)
     n_samples = inputs.get('n_samples', 15360)
+    keep_open = inputs.get('keep_interconnect_open', False)
     
     icp_file = files['interconnect']
     
@@ -336,6 +339,7 @@ def interconnect(inputs, files):
     print(f"  File: {icp_file}")
     print(f"  Time window: {time_window}s")
     print(f"  Samples: {n_samples}")
+    print(f"  Keep INTERCONNECT open: {keep_open}")  # DEBUG
     
     print(f"\n  Loading simulation files:")
     for key, value in files.items():
@@ -360,6 +364,26 @@ def interconnect(inputs, files):
     
     print(f"  ✓ INTERCONNECT simulation complete!")
     
-    # ic.close()  # Uncomment if you want to close after simulation
+    # DEBUG: Show what we're about to do
+    print(f"\n  DEBUG: keep_open = {keep_open}, type = {type(keep_open)}")
+    
+    # Check if user wants to keep INTERCONNECT open
+    if keep_open:
+        print(f"\n" + "="*70)
+        print(f"  ⚠️  INTERCONNECT WINDOW LEFT OPEN")
+        print(f"="*70)
+        print(f"  The INTERCONNECT window has been left open for manual inspection.")
+        print(f"  You can now:")
+        print(f"    • Inspect results visually")
+        print(f"    • Export data manually")
+        print(f"    • Modify parameters and re-run")
+        print(f"  Remember to close it manually when you're finished!")
+        print(f"="*70 + "\n")
+    else:
+        print(f"  Closing INTERCONNECT...")
+        ic.close()
+        # Give the process time to close cleanly
+        time.sleep(0.5)
+        print(f"  ✓ INTERCONNECT window closed")
     
     return ic

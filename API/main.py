@@ -7,6 +7,7 @@ class API:
     def __init__(self):
         self.init = True
         self.platform = 'sipho'  # Default platform
+        self.ic_connection = None  # Para mantener INTERCONNECT abierto si es necesario
 
     def set_platform(self, platform):
         """
@@ -237,4 +238,12 @@ class API:
             print(f"  • {key}: {value}")
         print()
 
-        interface.interconnect(inputs, files)
+        # CRÍTICO: Capturar el objeto ic retornado
+        ic = interface.interconnect(inputs, files)
+        
+        # Si el usuario quiere mantener INTERCONNECT abierto, guardar la referencia
+        if inputs.get('keep_interconnect_open', False):
+            self.ic_connection = ic
+            print("\n✓ INTERCONNECT connection reference saved in API object")
+            print("  (This keeps the window open until the program exits)\n")
+        # Si no, el objeto se destruirá automáticamente y cerrará INTERCONNECT

@@ -225,6 +225,32 @@ class ConfigurationWindow:
         )
         self.output_dir_entry = output_container["entry"]
         
+        # Checkbox to keep INTERCONNECT open
+        checkbox_frame = ctk.CTkFrame(output_section, fg_color="transparent")
+        checkbox_frame.pack(fill="x", padx=25, pady=15)
+        
+        self.keep_interconnect_open_var = ctk.BooleanVar(value=False)
+        
+        self.keep_interconnect_checkbox = ctk.CTkCheckBox(
+            checkbox_frame,
+            text="Keep INTERCONNECT window open after simulation",
+            variable=self.keep_interconnect_open_var,
+            font=ctk.CTkFont(size=13),
+            fg_color=THEME_COLOR,
+            hover_color=THEME_COLOR_HOVER,
+            text_color=TEXT_PRIMARY
+        )
+        self.keep_interconnect_checkbox.pack(anchor="w")
+        
+        help_label = ctk.CTkLabel(
+            checkbox_frame,
+            text="ℹ️  Useful for debugging or manual inspection of results",
+            font=ctk.CTkFont(size=11),
+            text_color=TEXT_SECONDARY,
+            anchor="w"
+        )
+        help_label.pack(anchor="w", pady=(5, 0))
+        
         # ========== ACTION BUTTONS ==========
         button_frame = ctk.CTkFrame(self.window, fg_color=CARD_BG, height=80, corner_radius=0)
         button_frame.pack(fill="x", side="bottom")
@@ -389,7 +415,8 @@ class ConfigurationWindow:
                 'heater_sim_type': heater_sim_type,
                 'time_window': time_window,
                 'n_samples': n_samples,
-                'output_dir': output_dir
+                'output_dir': output_dir,
+                'keep_interconnect_open': self.keep_interconnect_open_var.get()
             }
             
             if sim_type == "scatter":
