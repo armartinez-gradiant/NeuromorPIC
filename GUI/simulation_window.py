@@ -1,5 +1,5 @@
 """
-Ventana de ejecución y progreso de simulación
+Simulation execution and progress window
 """
 
 import customtkinter as ctk
@@ -8,7 +8,7 @@ from tkinter import messagebox
 import sys
 from io import StringIO
 
-# Tema personalizado
+# Custom theme
 THEME_COLOR = "#E31E24"
 THEME_COLOR_HOVER = "#B01419"
 DARK_BG = "#1a1a1a"
@@ -18,41 +18,41 @@ TEXT_SECONDARY = "#b0b0b0"
 
 
 class SimulationWindow:
-    """Ventana para ejecutar y monitorear simulación"""
+    """Window to execute and monitor simulation"""
     
     def __init__(self, parent, api, params, callback=None):
         """
         Args:
-            parent: Ventana padre
-            api: Instancia de API
-            params: Parámetros de simulación
-            callback: Función a llamar al finalizar
+            parent: Parent window
+            api: API instance
+            params: Simulation parameters
+            callback: Function to call when finished
         """
         self.api = api
         self.params = params
         self.callback = callback
         self.is_running = False
         
-        # Crear ventana
+        # Create window
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Ejecutando Simulación")
+        self.window.title("Running Simulation")
         self.window.geometry("800x600")
         self.window.configure(fg_color=DARK_BG)
         
-        # Hacer modal
+        # Make modal
         self.window.transient(parent)
         self.window.grab_set()
         
-        # Prevenir cierre durante simulación
+        # Prevent closing during simulation
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         self.setup_ui()
         
-        # Iniciar simulación automáticamente
+        # Start simulation automatically
         self.start_simulation()
         
     def setup_ui(self):
-        """Configurar interfaz"""
+        """Configure interface"""
         
         # Header
         header_frame = ctk.CTkFrame(self.window, fg_color=THEME_COLOR, height=70, corner_radius=0)
@@ -61,26 +61,26 @@ class SimulationWindow:
         
         title = ctk.CTkLabel(
             header_frame,
-            text="⚙️  Ejecutando Simulación",
+            text="⚙️  Running Simulation",
             font=ctk.CTkFont(size=24, weight="bold"),
             text_color=TEXT_PRIMARY
         )
         title.pack(pady=20, padx=30, anchor="w")
         
-        # Contenido principal
+        # Main content
         content_frame = ctk.CTkFrame(self.window, fg_color=DARK_BG)
         content_frame.pack(fill="both", expand=True, padx=25, pady=20)
         
-        # Estado actual
+        # Current status
         self.status_label = ctk.CTkLabel(
             content_frame,
-            text="Inicializando simulación...",
+            text="Initializing simulation...",
             font=ctk.CTkFont(size=16, weight="bold"),
             text_color=THEME_COLOR
         )
         self.status_label.pack(pady=(10, 20))
         
-        # Barra de progreso indeterminada
+        # Indeterminate progress bar
         self.progress_bar = ctk.CTkProgressBar(
             content_frame,
             width=700,
@@ -91,10 +91,10 @@ class SimulationWindow:
         self.progress_bar.set(0)
         self.progress_bar.start()
         
-        # Área de logs
+        # Log area
         log_label = ctk.CTkLabel(
             content_frame,
-            text="Log de Ejecución:",
+            text="Execution Log:",
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=TEXT_PRIMARY,
             anchor="w"
@@ -110,10 +110,10 @@ class SimulationWindow:
         )
         self.log_text.pack(fill="both", expand=True, pady=(0, 10))
         
-        # Botón de cerrar (inicialmente deshabilitado)
+        # Close button (initially disabled)
         self.close_button = ctk.CTkButton(
             content_frame,
-            text="Cerrar",
+            text="Close",
             command=self.close_window,
             state="disabled",
             fg_color=TEXT_SECONDARY,
@@ -123,61 +123,61 @@ class SimulationWindow:
         self.close_button.pack(pady=10)
         
     def log(self, message):
-        """Añadir mensaje al log"""
+        """Add message to log"""
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
         self.window.update()
         
     def update_status(self, status):
-        """Actualizar estado actual"""
+        """Update current status"""
         self.status_label.configure(text=status)
         self.window.update()
         
     def start_simulation(self):
-        """Iniciar simulación en thread separado"""
+        """Start simulation in separate thread"""
         self.is_running = True
         self.log("="*70)
-        self.log("INICIO DE SIMULACIÓN")
+        self.log("SIMULATION START")
         self.log("="*70)
         
-        # Mostrar parámetros
-        self.log("\nParámetros de simulación:")
+        # Show parameters
+        self.log("\nSimulation parameters:")
         for key, value in self.params.items():
             self.log(f"  • {key}: {value}")
         self.log("\n" + "="*70)
         
-        # Ejecutar en thread separado para no bloquear UI
+        # Execute in separate thread to avoid blocking UI
         thread = threading.Thread(target=self.run_simulation)
         thread.daemon = True
         thread.start()
         
     def run_simulation(self):
-        """Ejecutar la simulación"""
+        """Execute the simulation"""
         try:
-            # Capturar stdout para mostrar en log
+            # Capture stdout to show in log
             old_stdout = sys.stdout
             sys.stdout = StringIO()
             
-            self.update_status("Ejecutando simulaciones de Lumerical...")
-            self.log("\n▶ Iniciando simulaciones...\n")
+            self.update_status("Running Lumerical simulations...")
+            self.log("\n▶ Starting simulations...\n")
             
-            # EJECUTAR LA SIMULACIÓN
+            # EXECUTE SIMULATION
             self.api.run(self.params)
             
-            # Recuperar output
+            # Retrieve output
             output = sys.stdout.getvalue()
             sys.stdout = old_stdout
             
-            # Mostrar output en log
+            # Show output in log
             if output:
                 self.log(output)
             
-            # Simulación completada exitosamente
+            # Simulation completed successfully
             self.log("\n" + "="*70)
-            self.log("✓ SIMULACIÓN COMPLETADA EXITOSAMENTE")
+            self.log("✓ SIMULATION COMPLETED SUCCESSFULLY")
             self.log("="*70)
             
-            self.update_status("Simulación completada exitosamente")
+            self.update_status("Simulation completed successfully")
             self.progress_bar.stop()
             self.progress_bar.set(1.0)
             
@@ -188,22 +188,22 @@ class SimulationWindow:
                 hover_color=THEME_COLOR_HOVER
             )
             
-            # Llamar callback si existe
+            # Call callback if exists
             if self.callback:
                 self.callback(success=True, params=self.params)
             
         except Exception as e:
-            # Restaurar stdout
+            # Restore stdout
             sys.stdout = old_stdout
             
-            # Error durante simulación
+            # Error during simulation
             error_msg = str(e)
             self.log("\n" + "="*70)
-            self.log("✗ ERROR EN SIMULACIÓN")
+            self.log("✗ SIMULATION ERROR")
             self.log("="*70)
             self.log(f"\nError: {error_msg}\n")
             
-            self.update_status("Error durante la simulación")
+            self.update_status("Error during simulation")
             self.progress_bar.stop()
             self.progress_bar.set(0)
             
@@ -215,20 +215,20 @@ class SimulationWindow:
             )
             
             messagebox.showerror(
-                "Error de Simulación",
-                f"Ocurrió un error durante la simulación:\n\n{error_msg}"
+                "Simulation Error",
+                f"An error occurred during simulation:\n\n{error_msg}"
             )
             
-            # Llamar callback con error
+            # Call callback with error
             if self.callback:
                 self.callback(success=False, error=error_msg)
     
     def on_closing(self):
-        """Manejar intento de cerrar ventana"""
+        """Handle window close attempt"""
         if self.is_running:
             response = messagebox.askyesno(
-                "Simulación en progreso",
-                "La simulación está en progreso. ¿Desea cancelarla y cerrar?"
+                "Simulation in progress",
+                "The simulation is in progress. Do you want to cancel it and close?"
             )
             if response:
                 self.is_running = False
@@ -237,5 +237,5 @@ class SimulationWindow:
             self.close_window()
     
     def close_window(self):
-        """Cerrar ventana"""
+        """Close window"""
         self.window.destroy()
