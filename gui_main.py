@@ -842,8 +842,13 @@ class LumericalGUI:
             print(f"  • {key}: {value}")
         print("\n" + "="*50)
         
+        # Save configuration
         self.last_config = params
         
+        # Go back to Home FIRST (this creates the widgets)
+        self.navigate_to("home")
+        
+        # NOW update the widgets (they exist now)
         self.info_subtitle.configure(
             text=f"Last configuration: {self.format_sim_type(params.get('sim_type', ''))} | "
                  f"{self.format_heater_type(params.get('heater_sim_type', ''))} | "
@@ -851,9 +856,6 @@ class LumericalGUI:
         )
         
         self.update_info_display()
-        
-        # Go back to Home
-        self.navigate_to("home")
         
         # Run simulation
         from GUI.simulation_window import SimulationWindow
