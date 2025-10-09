@@ -6,9 +6,15 @@ import interferometer as itf
 import cmath
 import math
 
+# Importar el detector automático de Lumerical
 import sys
-sys.path.append(r"C:\Program Files\Lumerical\v251\api\python")  # cambia según tu instalación
-import lumapi # type: ignore
+import os
+# Añadir el directorio padre al path para poder importar lumerical_path_detector
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from lumerical_path_detector import auto_detect_and_load_lumapi
+
+# Cargar lumapi automáticamente
+lumapi = auto_detect_and_load_lumapi()
 
 #### some more function definitions
 
@@ -156,7 +162,7 @@ def mzi_mesh(u,xpos=0,ypos=0,graph=False):
     ##### It may take more time but it seems more straightforward.
     ##### Let's make the exact same loop but this time in each MZI we connect the two ouputs.
 
-    if dim%2==0: ### Even and aodd meshes are a bit different, this one is for even meshes
+    if dim%2==0: ### Even and odd meshes are a bit different, this one is for even meshes
         for i in range(L + 1):  
             
             j_max = 2 * min(i, L - i) + (1 if i > (L // 2) else 0)
@@ -249,6 +255,7 @@ def mzi_mesh(u,xpos=0,ypos=0,graph=False):
                     if i==L and j!=0:
                         ### First no connection
                         ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1","input 2")         
+
 def generate_power_meters(dim):
     count=0
     ### Places the first power meter
@@ -293,7 +300,7 @@ def dBm_to_W(x):
     return 10**(x/10)/1000
 
 def get_results(dim):
-        return [(dBm_to_W(ic.getresult(f"pm{i}","sum/power")),ic.getresult(f"pm{i}","mode 1/angle")) for i in range(dim)]
+    return [(dBm_to_W(ic.getresult(f"pm{i}","sum/power")),ic.getresult(f"pm{i}","mode 1/angle")) for i in range(dim)]
 
 
 def complex_to_polar(vec):
@@ -430,4 +437,7 @@ def random_vector(
     return out
 
 
-ic = lumapi.INTERCONNECT(r"C:\Users\hcasas\OneDrive - gradiant.org\COM - MiNEP\05_Simulations\INTERCONNECT\AFINA\Simple Matrix Multiplication\test.icp",hide=True)
+# Inicializar INTERCONNECT con ruta relativa al archivo test.icp
+# La ruta será relativa desde donde se ejecute el script
+icp_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test.icp")
+ic = lumapi.INTERCONNECT(icp_path, hide=True)

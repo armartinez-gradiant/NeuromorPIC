@@ -7,9 +7,7 @@ from scipy.stats import unitary_group
 import interferometer as itf
 import time
 
-import sys
-sys.path.append(r"C:\Program Files\Lumerical\v251\api\python")  # cambia según tu instalación
-import lumapi # type: ignore
+# Ya no necesitamos importar lumapi aquí porque main.py ya lo hace
 
 dim=4
 u = unitary_group.rvs(dim)

@@ -1,6 +1,6 @@
 """
-Main GUI for Silicon Photonic Neuromorphic Chip Simulation
-Modern graphical interface with Sidebar using CustomTkinter
+GUI Principal para Silicon Photonic Neuromorphic Chip Simulation
+Interfaz gráfica moderna con Sidebar usando CustomTkinter
 """
 
 import customtkinter as ctk
@@ -9,91 +9,83 @@ from PIL import Image
 import os
 import sys
 
-# ========== CUSTOM THEME CONFIGURATION ==========
-THEME_COLOR = "#E31E24"  # Gradiant Red
-THEME_COLOR_HOVER = "#C01018"  # Darker red
-HEADER_BG = "#f8f8f8"  # Very light gray for logo visibility
-HEADER_TEXT = "#2d2d2d"  # Dark text on header
-DARK_BG = "#1a1a1a"  # Main dark background
-SIDEBAR_BG = "#2d2d2d"  # Sidebar background
-CARD_BG = "#252525"  # Card background
-TEXT_PRIMARY = "#ffffff"  # Primary text
-TEXT_SECONDARY = "#999999"  # Secondary text
-TEXT_DISABLED = "#555555"  # Disabled text
+# ========== CONFIGURACIÓN DE TEMA PERSONALIZADO ==========
+THEME_COLOR = "#E31E24"  # Rojo Gradiant
+THEME_COLOR_HOVER = "#C01018"  # Rojo más oscuro
+HEADER_BG = "#f8f8f8"  # Gris muy claro para que logo se vea
+HEADER_TEXT = "#2d2d2d"  # Texto oscuro en header
+DARK_BG = "#1a1a1a"  # Fondo oscuro principal
+SIDEBAR_BG = "#2d2d2d"  # Fondo del sidebar
+CARD_BG = "#252525"  # Fondo de tarjetas
+TEXT_PRIMARY = "#ffffff"  # Texto principal
+TEXT_SECONDARY = "#999999"  # Texto secundario
+TEXT_DISABLED = "#555555"  # Texto deshabilitado
 
-# Theme configuration
+# Configuración del tema
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
 class LumericalGUI:
-    """Main GUI class"""
+    """Clase principal de la interfaz gráfica"""
     
     def __init__(self):
-        # Create main window
+        # Crear ventana principal
         self.root = ctk.CTk()
-        self.root.title("NeuromorPIC Simulation Platform - Gradiant")
+        self.root.title("Lumerical Simulation Platform - Gradiant")
         self.root.geometry("1200x800")
         
-        # Custom background color
+        # Color de fondo personalizado
         self.root.configure(fg_color=DARK_BG)
         
-        # Initialize API
+        # Inicializar API
         self.api = API()
         
-        # Default platform
+        # Platform por defecto
         self.selected_platform = "sipho"
         self.api.set_platform(self.selected_platform)
         self.api.load_cache()
         self.defaults = self.api.get_param_suggestions()
         
-        # Variable to store last configuration
+        # Variable para almacenar última configuración
         self.last_config = None
         
-        # Current section
+        # Sección actual
         self.current_section = "home"
         
-        # Variables for configuration form
+        # Variables para el formulario de configuración
         self.config_widgets = {}
         
-        # Load logo
+        # Cargar logo
         self.load_logo()
         
-        # Configure interface
+        # Configurar la interfaz
         self.setup_ui()
         
     def load_logo(self):
-        """Load Gradiant logo"""
+        """Cargar el logo de Gradiant"""
         try:
             logo_path = os.path.join("GUI", "assets", "images", "gradiant_logo.png")
             logo_image = Image.open(logo_path)
-            
-            # Calculate size maintaining aspect ratio
-            # Target height: 45px
-            target_height = 45
-            original_width, original_height = logo_image.size
-            aspect_ratio = original_width / original_height
-            target_width = int(target_height * aspect_ratio)
-            
             self.logo = ctk.CTkImage(
                 light_image=logo_image,
                 dark_image=logo_image,
-                size=(target_width, target_height)
+                size=(150, 50)
             )
-            print(f"✓ Logo loaded from: {logo_path} (size: {target_width}x{target_height})")
+            print(f"✓ Logo cargado desde: {logo_path}")
         except Exception as e:
-            print(f"⚠️  Could not load logo: {e}")
+            print(f"⚠️  No se pudo cargar el logo: {e}")
             self.logo = None
         
     def setup_ui(self):
-        """Configure all interface elements"""
+        """Configurar todos los elementos de la interfaz"""
         
-        # ========== TOP BAR WITH LOGO ==========
+        # ========== BARRA SUPERIOR CON LOGO ==========
         header_frame = ctk.CTkFrame(self.root, fg_color=HEADER_BG, height=80, corner_radius=0)
         header_frame.pack(fill="x", padx=0, pady=0)
         header_frame.pack_propagate(False)
         
-        # Gradiant Logo
+        # Logo de Gradiant
         if self.logo:
             logo_label = ctk.CTkLabel(
                 header_frame,
@@ -102,17 +94,17 @@ class LumericalGUI:
             )
             logo_label.pack(side="left", padx=30, pady=15)
         
-        # Vertical separator
+        # Separador vertical
         separator = ctk.CTkFrame(header_frame, fg_color=HEADER_TEXT, width=2)
         separator.pack(side="left", fill="y", padx=(0, 20), pady=15)
         
-        # Titles
+        # Títulos
         titles_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
         titles_frame.pack(side="left", fill="y", pady=15)
         
         title_label = ctk.CTkLabel(
             titles_frame,
-            text="NeuromorPIC",
+            text="Lumerical Simulation Platform",
             font=ctk.CTkFont(size=24, weight="bold"),
             text_color=HEADER_TEXT,
             anchor="w"
@@ -121,14 +113,14 @@ class LumericalGUI:
         
         subtitle_label = ctk.CTkLabel(
             titles_frame,
-            text="Photonic Neuromorphic Chip Simulation Platform",
+            text="Silicon Photonic Neuromorphic Chip",
             font=ctk.CTkFont(size=13),
             text_color=HEADER_TEXT,
             anchor="w"
         )
         subtitle_label.pack(anchor="w", pady=(2, 0))
         
-        # ========== MAIN CONTAINER (SIDEBAR + CONTENT) ==========
+        # ========== CONTENEDOR PRINCIPAL (SIDEBAR + CONTENIDO) ==========
         main_container = ctk.CTkFrame(self.root, fg_color=DARK_BG)
         main_container.pack(fill="both", expand=True)
         
@@ -140,7 +132,7 @@ class LumericalGUI:
         sidebar_content = ctk.CTkFrame(self.sidebar, fg_color="transparent")
         sidebar_content.pack(fill="both", expand=True, padx=15, pady=20)
         
-        # Sidebar title
+        # Título del sidebar
         sidebar_title = ctk.CTkLabel(
             sidebar_content,
             text="NAVIGATION",
@@ -150,7 +142,7 @@ class LumericalGUI:
         )
         sidebar_title.pack(fill="x", pady=(0, 15))
         
-        # Navigation buttons
+        # Botones de navegación
         self.nav_buttons = {}
         
         self.nav_buttons['home'] = self.create_nav_button(sidebar_content, "🏠  Home", "home", enabled=True)
@@ -159,11 +151,11 @@ class LumericalGUI:
         self.nav_buttons['history'] = self.create_nav_button(sidebar_content, "📝  History", "history", enabled=False)
         self.nav_buttons['settings'] = self.create_nav_button(sidebar_content, "⚙️  Settings", "settings", enabled=False)
         
-        # Separator
+        # Separador
         separator = ctk.CTkFrame(sidebar_content, fg_color=TEXT_DISABLED, height=1)
         separator.pack(fill="x", pady=20)
         
-        # ========== PLATFORM SELECTOR IN SIDEBAR ==========
+        # ========== SELECTOR DE PLATAFORMA EN SIDEBAR ==========
         platform_section_title = ctk.CTkLabel(
             sidebar_content,
             text="PLATFORM",
@@ -199,7 +191,7 @@ class LumericalGUI:
         )
         sin_radio.pack(anchor="w", pady=5)
         
-        # Separator
+        # Separador
         separator2 = ctk.CTkFrame(sidebar_content, fg_color=TEXT_DISABLED, height=1)
         separator2.pack(fill="x", pady=20)
         
@@ -234,15 +226,15 @@ class LumericalGUI:
         )
         self.cache_sin_label.pack(anchor="w", pady=2)
         
-        # ========== MAIN CONTENT ==========
+        # ========== CONTENIDO PRINCIPAL ==========
         self.content_frame = ctk.CTkFrame(main_container, fg_color=DARK_BG)
         self.content_frame.pack(side="left", fill="both", expand=True, padx=30, pady=30)
         
-        # Show Home by default
+        # Mostrar Home por defecto
         self.show_home()
         
     def create_nav_button(self, parent, text, section, enabled=True):
-        """Create navigation button"""
+        """Crear botón de navegación"""
         if enabled:
             btn = ctk.CTkButton(
                 parent,
@@ -272,10 +264,10 @@ class LumericalGUI:
         return btn
     
     def navigate_to(self, section):
-        """Navigate to a section"""
+        """Navegar a una sección"""
         self.current_section = section
         
-        # Update button colors
+        # Actualizar colores de botones
         for key, btn in self.nav_buttons.items():
             if key == section:
                 btn.configure(fg_color=THEME_COLOR, text_color=TEXT_PRIMARY)
@@ -283,7 +275,7 @@ class LumericalGUI:
                 if btn.cget("state") != "disabled":
                     btn.configure(fg_color="transparent", text_color=TEXT_PRIMARY)
         
-        # Show corresponding content
+        # Mostrar contenido correspondiente
         if section == "home":
             self.show_home()
         elif section == "simulate":
@@ -296,21 +288,21 @@ class LumericalGUI:
             self.show_settings()
     
     def clear_content(self):
-        """Clear current content"""
+        """Limpiar el contenido actual"""
         for widget in self.content_frame.winfo_children():
             widget.destroy()
     
     def show_home(self):
-        """Show Home screen"""
+        """Mostrar pantalla de Home"""
         self.clear_content()
         
-        # Welcome card
+        # Card de bienvenida
         welcome_card = ctk.CTkFrame(self.content_frame, fg_color=CARD_BG, corner_radius=15)
         welcome_card.pack(fill="x", pady=(0, 20))
         
         welcome_title = ctk.CTkLabel(
             welcome_card,
-            text="Welcome",
+            text="Bienvenido",
             font=ctk.CTkFont(size=22, weight="bold"),
             text_color=TEXT_PRIMARY,
             anchor="w"
@@ -319,8 +311,8 @@ class LumericalGUI:
         
         welcome_text = ctk.CTkLabel(
             welcome_card,
-            text="This platform allows you to configure and run advanced simulations\n"
-                 "of photonic neuromorphic chips using Lumerical INTERCONNECT.",
+            text="Esta plataforma permite configurar y ejecutar simulaciones avanzadas\n"
+                 "de chips neuromórficos fotónicos usando Lumerical INTERCONNECT.",
             font=ctk.CTkFont(size=14),
             text_color=TEXT_SECONDARY,
             anchor="w",
@@ -328,13 +320,13 @@ class LumericalGUI:
         )
         welcome_text.pack(fill="x", padx=30, pady=(0, 25))
         
-        # Current platform card
+        # Card de plataforma actual
         platform_card = ctk.CTkFrame(self.content_frame, fg_color=CARD_BG, corner_radius=15)
         platform_card.pack(fill="x", pady=(0, 20))
         
         platform_title = ctk.CTkLabel(
             platform_card,
-            text="📡 Current Platform",
+            text="📡 Plataforma Actual",
             font=ctk.CTkFont(size=18, weight="bold"),
             text_color=TEXT_PRIMARY,
             anchor="w"
@@ -355,13 +347,13 @@ class LumericalGUI:
         )
         self.platform_display_label.pack(fill="x", padx=30, pady=(0, 20))
         
-        # Last configuration card
+        # Card de última configuración
         info_card = ctk.CTkFrame(self.content_frame, fg_color=CARD_BG, corner_radius=15)
         info_card.pack(fill="x", pady=(0, 25))
         
         self.info_title = ctk.CTkLabel(
             info_card,
-            text="📊 Last Simulation Parameters",
+            text="📊 Parámetros de la Última Simulación",
             font=ctk.CTkFont(size=18, weight="bold"),
             text_color=TEXT_PRIMARY,
             anchor="w"
@@ -370,7 +362,7 @@ class LumericalGUI:
         
         self.info_subtitle = ctk.CTkLabel(
             info_card,
-            text="No simulation has been configured yet",
+            text="Aún no se ha configurado ninguna simulación",
             font=ctk.CTkFont(size=12),
             text_color=TEXT_SECONDARY,
             anchor="w"
@@ -382,13 +374,13 @@ class LumericalGUI:
         
         self.update_info_display()
         
-        # Main button
+        # Botón principal
         button_frame = ctk.CTkFrame(self.content_frame, fg_color=DARK_BG)
         button_frame.pack(expand=True)
         
         start_button = ctk.CTkButton(
             button_frame,
-            text="▶  Start New Simulation",
+            text="▶  Iniciar Nueva Simulación",
             font=ctk.CTkFont(size=18, weight="bold"),
             height=60,
             width=350,
@@ -399,10 +391,10 @@ class LumericalGUI:
         start_button.pack(pady=20)
     
     def show_simulate(self):
-        """Show simulation configuration form"""
+        """Mostrar formulario de configuración de simulación"""
         self.clear_content()
         
-        # Scrollable frame for the form
+        # Scrollable frame para el formulario
         scroll_frame = ctk.CTkScrollableFrame(
             self.content_frame,
             fg_color=DARK_BG,
@@ -411,24 +403,24 @@ class LumericalGUI:
         )
         scroll_frame.pack(fill="both", expand=True)
         
-        # Title
+        # Título
         title = ctk.CTkLabel(
             scroll_frame,
-            text="⚙️ Simulation Configuration",
+            text="⚙️ Configuración de Simulación",
             font=ctk.CTkFont(size=24, weight="bold"),
             text_color=TEXT_PRIMARY,
             anchor="w"
         )
         title.pack(fill="x", pady=(0, 20))
         
-        # SECTION 1: Simulation type
-        sim_type_card = self.create_section_card(scroll_frame, "🔬 Simulation Type")
+        # SECCIÓN 1: Tipo de simulación
+        sim_type_card = self.create_section_card(scroll_frame, "🔬 Tipo de Simulación")
         
         self.sim_type_var = ctk.StringVar(value="single laser")
         
         single_laser_radio = ctk.CTkRadioButton(
             sim_type_card,
-            text="Single Laser",
+            text="Láser Único",
             variable=self.sim_type_var,
             value="single laser",
             command=self.on_sim_type_changed,
@@ -440,7 +432,7 @@ class LumericalGUI:
         
         wavelength_sweep_radio = ctk.CTkRadioButton(
             sim_type_card,
-            text="Wavelength Sweep",
+            text="Barrido de Longitud de Onda",
             variable=self.sim_type_var,
             value="wavelength sweep",
             command=self.on_sim_type_changed,
@@ -450,12 +442,12 @@ class LumericalGUI:
         )
         wavelength_sweep_radio.pack(anchor="w", pady=8, padx=30)
         
-        # SECTION 2: Laser parameters
-        laser_card = self.create_section_card(scroll_frame, "💡 Laser Parameters")
+        # SECCIÓN 2: Parámetros del láser
+        laser_card = self.create_section_card(scroll_frame, "💡 Parámetros del Láser")
         
         self.source_wavelength_entry = self.create_input_field(
             laser_card,
-            "Laser wavelength (m)",
+            "Longitud de onda del láser (m)",
             self.defaults.get('laser_wavelength', '1.545e-9')
         )
         
@@ -464,18 +456,18 @@ class LumericalGUI:
         
         self.wavelength_window_entry = self.create_input_field(
             self.wavelength_window_frame,
-            "Wavelength window (m)",
+            "Ventana de longitud de onda (m)",
             self.defaults.get('wavelength_window', '2.5e-8')
         )
         
-        # SECTION 3: Heater
+        # SECCIÓN 3: Heater
         heater_card = self.create_section_card(scroll_frame, "🔥 N-Doped Heater")
         
         self.heater_type_var = ctk.StringVar(value="constant voltage")
         
         constant_v_radio = ctk.CTkRadioButton(
             heater_card,
-            text="Constant Voltage",
+            text="Voltaje Constante",
             variable=self.heater_type_var,
             value="constant voltage",
             command=self.on_heater_type_changed,
@@ -487,7 +479,7 @@ class LumericalGUI:
         
         sweep_radio = ctk.CTkRadioButton(
             heater_card,
-            text="Voltage Sweep",
+            text="Barrido de Voltaje",
             variable=self.heater_type_var,
             value="sweep",
             command=self.on_heater_type_changed,
@@ -497,89 +489,63 @@ class LumericalGUI:
         )
         sweep_radio.pack(anchor="w", pady=8, padx=30)
         
-        # Constant voltage
+        # Voltaje constante
         self.constant_voltage_frame = ctk.CTkFrame(heater_card, fg_color="transparent")
         self.constant_voltage_frame.pack(fill="x", pady=(5, 0), padx=30)
         
         self.constant_v_entry = self.create_input_field(
             self.constant_voltage_frame,
-            "Fixed voltage (V)",
+            "Voltaje fijo (V)",
             self.defaults.get('constant_v', '10.0')
         )
         
-        # Voltage sweep
+        # Barrido de voltaje
         self.sweep_container = ctk.CTkFrame(heater_card, fg_color="transparent")
         self.sweep_container.pack(fill="x", pady=(5, 0), padx=30)
         
         self.min_voltage_entry = self.create_input_field(
             self.sweep_container,
-            "Minimum voltage (V)",
+            "Voltaje mínimo (V)",
             self.defaults.get('min_v', '0.0')
         )
         
         self.max_voltage_entry = self.create_input_field(
             self.sweep_container,
-            "Maximum voltage (V)",
+            "Voltaje máximo (V)",
             self.defaults.get('max_v', '20.0')
         )
         
         self.voltage_interval_entry = self.create_input_field(
             self.sweep_container,
-            "Voltage interval (V)",
+            "Intervalo de voltaje (V)",
             self.defaults.get('interval_v', '0.2')
         )
         
-        # SECTION 4: Time parameters
-        time_card = self.create_section_card(scroll_frame, "⏱️ Time Parameters")
+        # SECCIÓN 4: Parámetros temporales
+        time_card = self.create_section_card(scroll_frame, "⏱️ Parámetros Temporales")
         
         self.time_window_entry = self.create_input_field(
             time_card,
-            "Time window (s)",
+            "Ventana de tiempo (s)",
             '5.12e-9'
         )
         
         self.n_samples_entry = self.create_input_field(
             time_card,
-            "Number of samples",
+            "Número de muestras",
             '15360'
         )
         
-        # SECTION 5: Output
-        output_card = self.create_section_card(scroll_frame, "💾 Output Configuration")
+        # SECCIÓN 5: Salida
+        output_card = self.create_section_card(scroll_frame, "💾 Configuración de Salida")
         
         self.output_dir_entry = self.create_input_field(
             output_card,
-            "Output directory",
+            "Directorio de salida",
             './results'
         )
         
-        # Checkbox to keep INTERCONNECT open
-        checkbox_frame = ctk.CTkFrame(output_card, fg_color="transparent")
-        checkbox_frame.pack(fill="x", padx=30, pady=10)
-        
-        self.keep_interconnect_open_var = ctk.BooleanVar(value=False)
-        
-        self.keep_interconnect_checkbox = ctk.CTkCheckBox(
-            checkbox_frame,
-            text="Keep INTERCONNECT window open after simulation",
-            variable=self.keep_interconnect_open_var,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER,
-            text_color=TEXT_PRIMARY
-        )
-        self.keep_interconnect_checkbox.pack(anchor="w")
-        
-        help_label = ctk.CTkLabel(
-            checkbox_frame,
-            text="ℹ️  Useful for debugging or manual inspection of results",
-            font=ctk.CTkFont(size=11),
-            text_color=TEXT_SECONDARY,
-            anchor="w"
-        )
-        help_label.pack(anchor="w", pady=(5, 0))
-        
-        # Action buttons
+        # Botones de acción
         button_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent", height=80)
         button_frame.pack(fill="x", pady=30)
         
@@ -588,7 +554,7 @@ class LumericalGUI:
         
         cancel_button = ctk.CTkButton(
             button_container,
-            text="✖  Cancel",
+            text="✖  Cancelar",
             command=lambda: self.navigate_to("home"),
             fg_color="transparent",
             border_width=2,
@@ -602,7 +568,7 @@ class LumericalGUI:
         
         confirm_button = ctk.CTkButton(
             button_container,
-            text="✓  Confirm and Continue",
+            text="✓  Confirmar y Continuar",
             command=self.confirm_simulation,
             fg_color=THEME_COLOR,
             hover_color=THEME_COLOR_HOVER,
@@ -612,12 +578,12 @@ class LumericalGUI:
         )
         confirm_button.pack(side="left", padx=10)
         
-        # Initialize visibility
+        # Inicializar visibilidad
         self.on_sim_type_changed()
         self.on_heater_type_changed()
     
     def create_section_card(self, parent, title):
-        """Create a section card"""
+        """Crear una tarjeta de sección"""
         card = ctk.CTkFrame(parent, fg_color=CARD_BG, corner_radius=10)
         card.pack(fill="x", pady=(0, 20))
         
@@ -633,7 +599,7 @@ class LumericalGUI:
         return card
     
     def create_input_field(self, parent, label_text, default_value):
-        """Create input field"""
+        """Crear campo de entrada"""
         container = ctk.CTkFrame(parent, fg_color="transparent")
         container.pack(fill="x", pady=8)
         
@@ -660,7 +626,7 @@ class LumericalGUI:
         return entry
     
     def on_sim_type_changed(self):
-        """Callback when simulation type changes"""
+        """Callback cuando cambia el tipo de simulación"""
         sim_type = self.sim_type_var.get()
         
         if sim_type == "single laser":
@@ -669,7 +635,7 @@ class LumericalGUI:
             self.wavelength_window_frame.pack(fill="x", pady=(5, 0), padx=30)
     
     def on_heater_type_changed(self):
-        """Callback when heater type changes"""
+        """Callback cuando cambia el tipo de heater"""
         heater_type = self.heater_type_var.get()
         
         if heater_type == "constant voltage":
@@ -680,8 +646,8 @@ class LumericalGUI:
             self.sweep_container.pack(fill="x", pady=(5, 0), padx=30)
     
     def confirm_simulation(self):
-        """Confirm and run simulation"""
-        # Collect parameters
+        """Confirmar y ejecutar simulación"""
+        # Recopilar parámetros
         params = {
             'sim_type': self.sim_type_var.get(),
             'heater_sim_type': self.heater_type_var.get(),
@@ -689,11 +655,10 @@ class LumericalGUI:
             'time_window': float(self.time_window_entry.get()),
             'n_samples': int(self.n_samples_entry.get()),
             'output_dir': self.output_dir_entry.get(),
-            'platform': self.selected_platform,
-            'keep_interconnect_open': self.keep_interconnect_open_var.get()
+            'platform': self.selected_platform
         }
         
-        # Parameters according to simulation type
+        # Parámetros según tipo de simulación
         if params['sim_type'] == "single laser":
             params['start_wavelength'] = params['source_wavelength']
             params['end_wavelength'] = params['source_wavelength']
@@ -703,7 +668,7 @@ class LumericalGUI:
             params['start_wavelength'] = params['source_wavelength'] - half_window
             params['end_wavelength'] = params['source_wavelength'] + half_window
         
-        # Parameters according to heater type
+        # Parámetros según tipo de heater
         if params['heater_sim_type'] == "constant voltage":
             params['constant_v'] = float(self.constant_v_entry.get())
             params['min_v'] = params['constant_v']
@@ -714,11 +679,11 @@ class LumericalGUI:
             params['max_v'] = float(self.max_voltage_entry.get())
             params['interval_v'] = float(self.voltage_interval_entry.get())
         
-        # Execute callback
+        # Ejecutar callback
         self.on_configuration_complete(params)
     
     def show_results(self):
-        """Show Results screen"""
+        """Mostrar pantalla de Results"""
         self.clear_content()
         placeholder = ctk.CTkLabel(
             self.content_frame,
@@ -729,7 +694,7 @@ class LumericalGUI:
         placeholder.pack(expand=True)
     
     def show_history(self):
-        """Show History screen"""
+        """Mostrar pantalla de History"""
         self.clear_content()
         placeholder = ctk.CTkLabel(
             self.content_frame,
@@ -740,7 +705,7 @@ class LumericalGUI:
         placeholder.pack(expand=True)
     
     def show_settings(self):
-        """Show Settings screen"""
+        """Mostrar pantalla de Settings"""
         self.clear_content()
         placeholder = ctk.CTkLabel(
             self.content_frame,
@@ -751,9 +716,9 @@ class LumericalGUI:
         placeholder.pack(expand=True)
     
     def on_platform_changed(self):
-        """Callback when platform changes"""
+        """Callback cuando cambia la plataforma"""
         new_platform = self.platform_var.get()
-        print(f"\n🔄 Switching platform to: {new_platform.upper()}")
+        print(f"\n🔄 Cambiando plataforma a: {new_platform.upper()}")
         
         self.selected_platform = new_platform
         self.api.set_platform(new_platform)
@@ -769,10 +734,10 @@ class LumericalGUI:
             }
             self.platform_display_label.configure(text=f"✓ {platform_names[new_platform]}")
         
-        print(f"✓ Platform successfully switched to {new_platform.upper()}\n")
+        print(f"✓ Plataforma cambiada exitosamente a {new_platform.upper()}\n")
     
     def update_cache_info(self):
-        """Update cache information"""
+        """Actualizar información de cache"""
         current_platform = self.selected_platform
         current_count = len(self.api.wgT)
         
@@ -792,14 +757,14 @@ class LumericalGUI:
             self.cache_sipho_label.configure(text=f"SiPho: {other_count} sims", text_color=TEXT_SECONDARY)
     
     def update_info_display(self):
-        """Update last simulation information"""
+        """Actualizar información de última simulación"""
         for widget in self.info_grid.winfo_children():
             widget.destroy()
         
         if self.last_config is None:
             no_config_label = ctk.CTkLabel(
                 self.info_grid,
-                text="No simulation has been run yet",
+                text="Ninguna simulación ejecutada aún",
                 font=ctk.CTkFont(size=14),
                 text_color=TEXT_SECONDARY
             )
@@ -810,17 +775,17 @@ class LumericalGUI:
         wavelength_nm = float(params.get('source_wavelength', 0)) * 1e9
         
         if params.get('heater_sim_type') == 'constant voltage':
-            voltage_display = f"{params.get('constant_v', 'N/A')} V (constant)"
+            voltage_display = f"{params.get('constant_v', 'N/A')} V (constante)"
         else:
             voltage_display = f"{params.get('min_v', 'N/A')}-{params.get('max_v', 'N/A')} V"
         
         display_data = [
-            ("Simulation Type", self.format_sim_type(params.get('sim_type', ''))),
-            ("Wavelength", f"{wavelength_nm:.2f} nm"),
-            ("Heater Mode", self.format_heater_type(params.get('heater_sim_type', ''))),
-            ("Voltage", voltage_display),
-            ("Time Window", params.get('time_window', 'N/A')),
-            ("Samples", params.get('n_samples', 'N/A'))
+            ("Tipo de Simulación", self.format_sim_type(params.get('sim_type', ''))),
+            ("Longitud de Onda", f"{wavelength_nm:.2f} nm"),
+            ("Modo Heater", self.format_heater_type(params.get('heater_sim_type', ''))),
+            ("Voltaje", voltage_display),
+            ("Ventana Temporal", params.get('time_window', 'N/A')),
+            ("Muestras", params.get('n_samples', 'N/A'))
         ]
         
         for i, (label, value) in enumerate(display_data):
@@ -829,23 +794,23 @@ class LumericalGUI:
             self.create_info_item(self.info_grid, label, value, row, col)
     
     def format_sim_type(self, sim_type):
-        """Format simulation type"""
+        """Formatear tipo de simulación"""
         if sim_type == "single laser":
-            return "Single Laser"
+            return "Láser Único"
         elif sim_type == "wavelength sweep":
-            return "Wavelength Sweep"
+            return "Barrido de Longitud de Onda"
         return sim_type
     
     def format_heater_type(self, heater_type):
-        """Format heater type"""
+        """Formatear tipo de heater"""
         if heater_type == "constant voltage":
-            return "Constant Voltage"
+            return "Voltaje Constante"
         elif heater_type == "sweep":
-            return "Sweep"
+            return "Barrido (Sweep)"
         return heater_type
     
     def create_info_item(self, parent, label, value, row, column):
-        """Create information item"""
+        """Crear item de información"""
         item_frame = ctk.CTkFrame(parent, fg_color="transparent")
         item_frame.grid(row=row, column=column, padx=20, pady=12, sticky="w")
         
@@ -868,31 +833,29 @@ class LumericalGUI:
         value_widget.pack(anchor="w", pady=(3, 0))
     
     def on_configuration_complete(self, params):
-        """Callback when configuration is complete"""
+        """Callback cuando se completa la configuración"""
         print("\n" + "="*50)
-        print("🎉 Configuration completed!")
+        print("🎉 Configuración completada!")
         print("="*50)
-        print("\nReceived parameters:")
+        print("\nParámetros recibidos:")
         for key, value in params.items():
             print(f"  • {key}: {value}")
         print("\n" + "="*50)
         
-        # Save configuration
         self.last_config = params
         
-        # Go back to Home FIRST (this creates the widgets)
-        self.navigate_to("home")
-        
-        # NOW update the widgets (they exist now)
         self.info_subtitle.configure(
-            text=f"Last configuration: {self.format_sim_type(params.get('sim_type', ''))} | "
+            text=f"Última configuración: {self.format_sim_type(params.get('sim_type', ''))} | "
                  f"{self.format_heater_type(params.get('heater_sim_type', ''))} | "
-                 f"Platform: {self.selected_platform.upper()}"
+                 f"Plataforma: {self.selected_platform.upper()}"
         )
         
         self.update_info_display()
         
-        # Run simulation
+        # Volver a Home
+        self.navigate_to("home")
+        
+        # Ejecutar simulación
         from GUI.simulation_window import SimulationWindow
         SimulationWindow(
             parent=self.root,
@@ -902,22 +865,22 @@ class LumericalGUI:
         )
     
     def on_simulation_complete(self, success, params=None, error=None):
-        """Callback when simulation finishes"""
+        """Callback cuando termina la simulación"""
         if success:
-            print("\n✓ Simulation completed successfully")
+            print("\n✓ Simulación completada exitosamente")
             self.update_cache_info()
         else:
-            print(f"\n✗ Simulation failed: {error}")
+            print(f"\n✗ Simulación falló: {error}")
         
     def run(self):
-        """Run the application"""
+        """Ejecutar la aplicación"""
         self.root.mainloop()
 
 
 def main():
-    """Main entry point"""
+    """Punto de entrada principal"""
     print("=" * 50)
-    print("Starting NeuromorPIC Simulation GUI")
+    print("Iniciando GUI de Lumerical Simulation")
     print("=" * 50)
     
     app = LumericalGUI()

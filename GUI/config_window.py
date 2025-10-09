@@ -1,11 +1,11 @@
 """
-Configuration window for simulation parameters
+Ventana de configuración de parámetros de simulación
 """
 
 import customtkinter as ctk
 from tkinter import messagebox
 
-# Custom theme (same as gui_main.py)
+# Tema personalizado (mismo que gui_main.py)
 THEME_COLOR = "#E31E24"
 THEME_COLOR_HOVER = "#B01419"
 DARK_BG = "#1a1a1a"
@@ -16,34 +16,34 @@ DIVIDER_COLOR = "#3a3a3a"
 
 
 class ConfigurationWindow:
-    """Window to configure simulation parameters"""
+    """Ventana para configurar parámetros de simulación"""
     
     def __init__(self, parent, defaults, callback):
         """
         Args:
-            parent: Parent window
-            defaults: Dictionary with default values
-            callback: Function to call when configuration is confirmed
+            parent: Ventana padre
+            defaults: Diccionario con valores por defecto
+            callback: Función a llamar cuando se confirme la configuración
         """
         self.defaults = defaults
         self.callback = callback
         self.params = {}
         
-        # Create toplevel window
+        # Crear ventana toplevel
         self.window = ctk.CTkToplevel(parent)
-        self.window.title("Simulation Configuration")
+        self.window.title("Configuración de Simulación")
         self.window.geometry("900x800")
         self.window.configure(fg_color=DARK_BG)
         
-        # Make window modal
+        # Hacer que la ventana sea modal
         self.window.transient(parent)
         self.window.grab_set()
         
-        # Configure interface
+        # Configurar la interfaz
         self.setup_ui()
         
     def setup_ui(self):
-        """Configure all interface elements"""
+        """Configurar todos los elementos de la interfaz"""
         
         # ========== HEADER ==========
         header_frame = ctk.CTkFrame(self.window, fg_color=THEME_COLOR, height=70, corner_radius=0)
@@ -52,13 +52,13 @@ class ConfigurationWindow:
         
         title_label = ctk.CTkLabel(
             header_frame,
-            text="⚙️  Parameter Configuration",
+            text="⚙️  Configuración de Parámetros",
             font=ctk.CTkFont(size=24, weight="bold"),
             text_color=TEXT_PRIMARY
         )
         title_label.pack(pady=20, padx=30, anchor="w")
         
-        # ========== SCROLLABLE FRAME ==========
+        # ========== FRAME CON SCROLL ==========
         main_frame = ctk.CTkScrollableFrame(
             self.window,
             fg_color=DARK_BG,
@@ -67,10 +67,10 @@ class ConfigurationWindow:
         )
         main_frame.pack(fill="both", expand=True, padx=25, pady=20)
         
-        # ========== SECTION 1: LASER SIMULATION TYPE ==========
-        self.laser_section = self.create_section_card(main_frame, "🔬  Laser Simulation Type")
+        # ========== SECCIÓN 1: TIPO DE SIMULACIÓN LÁSER ==========
+        self.laser_section = self.create_section_card(main_frame, "🔬  Tipo de Simulación Láser")
         
-        # Radio buttons for simulation type
+        # Radio buttons para tipo de simulación
         self.sim_type_var = ctk.StringVar(value="scatter")
         
         radio_frame = ctk.CTkFrame(self.laser_section, fg_color="transparent")
@@ -78,7 +78,7 @@ class ConfigurationWindow:
         
         radio_scatter = ctk.CTkRadioButton(
             radio_frame,
-            text="Scatter (wavelength range)",
+            text="Scatter (rango de longitudes de onda)",
             variable=self.sim_type_var,
             value="scatter",
             command=self.on_sim_type_changed,
@@ -90,7 +90,7 @@ class ConfigurationWindow:
         
         radio_single = ctk.CTkRadioButton(
             radio_frame,
-            text="Single laser (single wavelength)",
+            text="Single laser (longitud única)",
             variable=self.sim_type_var,
             value="single laser",
             command=self.on_sim_type_changed,
@@ -100,32 +100,32 @@ class ConfigurationWindow:
         )
         radio_single.pack(side="left")
         
-        # ========== SECTION 2: LASER PARAMETERS ==========
-        self.wavelength_section = self.create_section_card(main_frame, "📡  Laser Parameters")
+        # ========== SECCIÓN 2: PARÁMETROS DEL LÁSER ==========
+        self.wavelength_section = self.create_section_card(main_frame, "📡  Parámetros del Láser")
         
-        # Wavelength field
+        # Campo de longitud de onda
         self.wavelength_field_frame = self.create_input_field(
             self.wavelength_section,
-            "Central wavelength (m)",
+            "Longitud de onda central (m)",
             self.defaults.get('source_wavelength', '1.55e-6'),
-            "For scatter: center of range. Single: unique wavelength"
+            "Para scatter: centro del rango. Single: longitud única"
         )
         self.wavelength_entry = self.wavelength_field_frame["entry"]
         
-        # Wavelength window field
+        # Campo wavelength_window
         self.wavelength_window_frame_container = self.create_input_field(
             self.wavelength_section,
-            "Wavelength window (m)",
+            "Ventana de longitud de onda (m)",
             self.defaults.get('wavelength_window', '20e-9'),
-            "Total wavelength range to simulate"
+            "Rango total de longitudes de onda a simular"
         )
         self.wavelength_window_frame = self.wavelength_window_frame_container["frame"]
         self.wavelength_window_entry = self.wavelength_window_frame_container["entry"]
         
-        # ========== SECTION 3: HEATER TYPE ==========
-        self.heater_section = self.create_section_card(main_frame, "⚡  Heater Simulation Type")
+        # ========== SECCIÓN 3: TIPO DE HEATER ==========
+        self.heater_section = self.create_section_card(main_frame, "⚡  Tipo de Simulación del Heater")
         
-        # Radio buttons for heater type
+        # Radio buttons para tipo de heater
         self.heater_sim_type_var = ctk.StringVar(value="sweep")
         
         heater_radio_frame = ctk.CTkFrame(self.heater_section, fg_color="transparent")
@@ -133,7 +133,7 @@ class ConfigurationWindow:
         
         radio_constant = ctk.CTkRadioButton(
             heater_radio_frame,
-            text="Constant voltage",
+            text="Voltaje constante",
             variable=self.heater_sim_type_var,
             value="constant voltage",
             command=self.on_heater_type_changed,
@@ -145,7 +145,7 @@ class ConfigurationWindow:
         
         radio_sweep = ctk.CTkRadioButton(
             heater_radio_frame,
-            text="Voltage sweep",
+            text="Barrido de voltaje (sweep)",
             variable=self.heater_sim_type_var,
             value="sweep",
             command=self.on_heater_type_changed,
@@ -155,103 +155,77 @@ class ConfigurationWindow:
         )
         radio_sweep.pack(side="left")
         
-        # ========== CONSTANT VOLTAGE ==========
+        # ========== VOLTAJE CONSTANTE ==========
         constant_v_container = self.create_input_field(
             self.heater_section,
-            "Constant voltage (V)",
+            "Voltaje constante (V)",
             self.defaults.get('constant_v', '10.0'),
-            "Fixed voltage applied to heater"
+            "Voltaje fijo aplicado al heater"
         )
         self.constant_voltage_frame = constant_v_container["frame"]
         self.constant_v_entry = constant_v_container["entry"]
         
-        # ========== VOLTAGE SWEEP ==========
-        # Container for the 3 sweep fields
+        # ========== BARRIDO DE VOLTAJE ==========
+        # Container para los 3 campos de sweep
         self.sweep_container = ctk.CTkFrame(self.heater_section, fg_color="transparent")
         self.sweep_container.pack(fill="x", pady=(5, 0))
         
         min_v_container = self.create_input_field(
             self.sweep_container,
-            "Minimum voltage (V)",
+            "Voltaje mínimo (V)",
             self.defaults.get('min_v', '0.0'),
-            "Minimum sweep voltage"
+            "Voltaje mínimo del barrido"
         )
-        self.sweep_voltage_frame = self.sweep_container  # Reference to container
+        self.sweep_voltage_frame = self.sweep_container  # Referencia al contenedor
         self.min_voltage_entry = min_v_container["entry"]
         
         max_v_container = self.create_input_field(
             self.sweep_container,
-            "Maximum voltage (V)",
+            "Voltaje máximo (V)",
             self.defaults.get('max_v', '20.0'),
-            "Maximum sweep voltage"
+            "Voltaje máximo del barrido"
         )
         self.max_voltage_entry = max_v_container["entry"]
         
         interval_v_container = self.create_input_field(
             self.sweep_container,
-            "Voltage interval (V)",
+            "Intervalo de voltaje (V)",
             self.defaults.get('interval_v', '0.2'),
-            "Step between voltage values"
+            "Paso entre valores de voltaje"
         )
         self.voltage_interval_entry = interval_v_container["entry"]
         
-        # ========== SECTION 4: TIME PARAMETERS ==========
-        time_section = self.create_section_card(main_frame, "⏱️  Time Parameters")
+        # ========== SECCIÓN 4: PARÁMETROS TEMPORALES ==========
+        time_section = self.create_section_card(main_frame, "⏱️  Parámetros Temporales")
         
         time_window_container = self.create_input_field(
             time_section,
-            "Time window (s)",
+            "Ventana de tiempo (s)",
             self.defaults.get('time_window', '5.12e-9'),
-            "Temporal duration of simulation"
+            "Duración temporal de la simulación"
         )
         self.time_window_entry = time_window_container["entry"]
         
         n_samples_container = self.create_input_field(
             time_section,
-            "Number of samples",
+            "Número de muestras",
             self.defaults.get('n_samples', '15360'),
-            "Number of points to sample"
+            "Cantidad de puntos a muestrear"
         )
         self.n_samples_entry = n_samples_container["entry"]
         
-        # ========== SECTION 5: OUTPUT ==========
-        output_section = self.create_section_card(main_frame, "💾  Output Configuration")
+        # ========== SECCIÓN 5: SALIDA ==========
+        output_section = self.create_section_card(main_frame, "💾  Configuración de Salida")
         
         output_container = self.create_input_field(
             output_section,
-            "Output directory",
+            "Directorio de salida",
             self.defaults.get('output_dir', './results'),
-            "Folder to save results"
+            "Carpeta donde guardar los resultados"
         )
         self.output_dir_entry = output_container["entry"]
         
-        # Checkbox to keep INTERCONNECT open
-        checkbox_frame = ctk.CTkFrame(output_section, fg_color="transparent")
-        checkbox_frame.pack(fill="x", padx=25, pady=15)
-        
-        self.keep_interconnect_open_var = ctk.BooleanVar(value=False)
-        
-        self.keep_interconnect_checkbox = ctk.CTkCheckBox(
-            checkbox_frame,
-            text="Keep INTERCONNECT window open after simulation",
-            variable=self.keep_interconnect_open_var,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER,
-            text_color=TEXT_PRIMARY
-        )
-        self.keep_interconnect_checkbox.pack(anchor="w")
-        
-        help_label = ctk.CTkLabel(
-            checkbox_frame,
-            text="ℹ️  Useful for debugging or manual inspection of results",
-            font=ctk.CTkFont(size=11),
-            text_color=TEXT_SECONDARY,
-            anchor="w"
-        )
-        help_label.pack(anchor="w", pady=(5, 0))
-        
-        # ========== ACTION BUTTONS ==========
+        # ========== BOTONES DE ACCIÓN ==========
         button_frame = ctk.CTkFrame(self.window, fg_color=CARD_BG, height=80, corner_radius=0)
         button_frame.pack(fill="x", side="bottom")
         button_frame.pack_propagate(False)
@@ -261,7 +235,7 @@ class ConfigurationWindow:
         
         cancel_button = ctk.CTkButton(
             button_container,
-            text="✖  Cancel",
+            text="✖  Cancelar",
             command=self.cancel,
             fg_color="transparent",
             border_width=2,
@@ -275,7 +249,7 @@ class ConfigurationWindow:
         
         confirm_button = ctk.CTkButton(
             button_container,
-            text="✓  Confirm and Continue",
+            text="✓  Confirmar y Continuar",
             command=self.confirm,
             fg_color=THEME_COLOR,
             hover_color=THEME_COLOR_HOVER,
@@ -285,12 +259,12 @@ class ConfigurationWindow:
         )
         confirm_button.pack(side="left", padx=10)
         
-        # Initialize visibility
+        # Inicializar visibilidad
         self.on_sim_type_changed()
         self.on_heater_type_changed()
     
     def create_section_card(self, parent, title):
-        """Create a section card"""
+        """Crear una tarjeta de sección"""
         card = ctk.CTkFrame(parent, fg_color=CARD_BG, corner_radius=10)
         card.pack(fill="x", pady=(0, 20))
         
@@ -303,14 +277,14 @@ class ConfigurationWindow:
         )
         title_label.pack(fill="x", padx=25, pady=(20, 10))
         
-        # Divider line
+        # Línea divisora
         divider = ctk.CTkFrame(card, height=1, fg_color=DIVIDER_COLOR)
         divider.pack(fill="x", padx=25, pady=(0, 15))
         
         return card
     
     def create_input_field(self, parent, label_text, default_value, help_text):
-        """Create an improved input field"""
+        """Crear un campo de entrada mejorado"""
         field_frame = ctk.CTkFrame(parent, fg_color="transparent")
         field_frame.pack(fill="x", padx=25, pady=8)
         
@@ -349,7 +323,7 @@ class ConfigurationWindow:
         return {"frame": field_frame, "entry": entry}
     
     def on_sim_type_changed(self):
-        """Callback when laser simulation type changes"""
+        """Callback cuando cambia el tipo de simulación láser"""
         sim_type = self.sim_type_var.get()
         
         if sim_type == "scatter":
@@ -358,7 +332,7 @@ class ConfigurationWindow:
             self.wavelength_window_frame.pack_forget()
     
     def on_heater_type_changed(self):
-        """Callback when heater simulation type changes"""
+        """Callback cuando cambia el tipo de simulación del heater"""
         heater_type = self.heater_sim_type_var.get()
         
         if heater_type == "constant voltage":
@@ -369,45 +343,45 @@ class ConfigurationWindow:
             self.constant_voltage_frame.pack_forget()
     
     def validate_inputs(self):
-        """Validate that all inputs are correct"""
+        """Validar que todos los inputs sean correctos"""
         try:
             sim_type = self.sim_type_var.get()
             heater_sim_type = self.heater_sim_type_var.get()
             
             wavelength = float(self.wavelength_entry.get())
             if wavelength <= 0:
-                raise ValueError("Wavelength must be positive")
+                raise ValueError("La longitud de onda debe ser positiva")
             
             if sim_type == "scatter":
                 wavelength_window = float(self.wavelength_window_entry.get())
                 if wavelength_window <= 0:
-                    raise ValueError("Wavelength window must be positive")
+                    raise ValueError("La ventana de longitud de onda debe ser positiva")
             
             if heater_sim_type == "constant voltage":
                 constant_v = float(self.constant_v_entry.get())
                 if constant_v < 0:
-                    raise ValueError("Constant voltage cannot be negative")
+                    raise ValueError("El voltaje constante no puede ser negativo")
             else:
                 min_v = float(self.min_voltage_entry.get())
                 max_v = float(self.max_voltage_entry.get())
                 interval_v = float(self.voltage_interval_entry.get())
                 
                 if min_v >= max_v:
-                    raise ValueError("Minimum voltage must be less than maximum")
+                    raise ValueError("El voltaje mínimo debe ser menor que el máximo")
                 if interval_v <= 0:
-                    raise ValueError("Voltage interval must be positive")
+                    raise ValueError("El intervalo de voltaje debe ser positivo")
             
             time_window = float(self.time_window_entry.get())
             n_samples = int(self.n_samples_entry.get())
             
             if time_window <= 0:
-                raise ValueError("Time window must be positive")
+                raise ValueError("La ventana de tiempo debe ser positiva")
             if n_samples <= 0:
-                raise ValueError("Number of samples must be positive")
+                raise ValueError("El número de muestras debe ser positivo")
             
             output_dir = self.output_dir_entry.get().strip()
             if not output_dir:
-                raise ValueError("Must specify an output directory")
+                raise ValueError("Debe especificar un directorio de salida")
             
             self.params = {
                 'sim_type': sim_type,
@@ -415,8 +389,7 @@ class ConfigurationWindow:
                 'heater_sim_type': heater_sim_type,
                 'time_window': time_window,
                 'n_samples': n_samples,
-                'output_dir': output_dir,
-                'keep_interconnect_open': self.keep_interconnect_open_var.get()
+                'output_dir': output_dir
             }
             
             if sim_type == "scatter":
@@ -444,19 +417,19 @@ class ConfigurationWindow:
             return True
             
         except ValueError as e:
-            messagebox.showerror("Validation Error", str(e))
+            messagebox.showerror("Error de validación", str(e))
             return False
     
     def confirm(self):
-        """Confirm configuration"""
+        """Confirmar la configuración"""
         if self.validate_inputs():
-            print("✅ Configuration validated successfully")
-            print("Parameters:", self.params)
+            print("✅ Configuración validada correctamente")
+            print("Parámetros:", self.params)
             
             self.callback(self.params)
             self.window.destroy()
     
     def cancel(self):
-        """Cancel configuration"""
-        print("❌ Configuration cancelled")
+        """Cancelar la configuración"""
+        print("❌ Configuración cancelada")
         self.window.destroy()

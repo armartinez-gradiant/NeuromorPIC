@@ -26,7 +26,7 @@ pip install -r requirements.txt
 3. Run simulation platform
 
 ```
-python main.py
+python gui_main.py
 ```
 
 4. The application will walk you through setting up a simulation and give you an opportunity to download results.
