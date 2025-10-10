@@ -238,3 +238,45 @@ class API:
         print()
 
         interface.interconnect(inputs, files)
+
+    def run_mzi_mesh(self, unitary_matrix, input_vector, visualize=False):
+        """
+        Ejecuta simulación de MZI Mesh para multiplicación matricial óptica
+        
+        Args:
+            unitary_matrix: Matriz unitaria numpy (N×N)
+            input_vector: Vector de entrada numpy (N,)
+            visualize: Si True, muestra el diagrama del mesh
+            
+        Returns:
+            Resultados de la simulación (lista de tuplas con magnitud y fase)
+        """
+        from Lumerical.mzi_mesh import MZIMeshSimulator
+        
+        print(f"\n{'='*70}")
+        print("🔷 RUNNING MZI MESH SIMULATION")
+        print(f"{'='*70}")
+        print(f"Platform: {self.platform.upper()}")
+        print(f"Matrix dimension: {unitary_matrix.shape[0]}×{unitary_matrix.shape[1]}")
+        print(f"Input vector length: {len(input_vector)}")
+        print(f"Visualize mesh: {visualize}")
+        print(f"{'='*70}\n")
+        
+        # Crear simulador con la plataforma actual
+        simulator = MZIMeshSimulator(platform=self.platform)
+        
+        # Ejecutar multiplicación matricial
+        results = simulator.matrix_multiplication(
+            unitary_matrix, 
+            input_vector, 
+            visualize=visualize
+        )
+        
+        # Cerrar simulador
+        simulator.close()
+        
+        print(f"\n{'='*70}")
+        print("✓ MZI MESH SIMULATION COMPLETED")
+        print(f"{'='*70}\n")
+        
+        return results
