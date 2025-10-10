@@ -22,18 +22,35 @@ class MZIMeshSimulator:
     Simulador de MZI Mesh consciente de la plataforma
     """
     
-    def __init__(self, platform='sipho'):
+    def __init__(self, platform='sipho', show_interconnect=False):
         """
         Inicializar el simulador con la plataforma deseada
         
         Args:
             platform: 'sipho' o 'sin'
+            show_interconnect: Si True, muestra la ventana de INTERCONNECT
         """
         self.platform = platform.lower()
-        self.icp_path = f"Lumerical/platforms/{self.platform}/weight_bank.icp"
+        self.show_interconnect = show_interconnect
         
-        # Cargar INTERCONNECT
-        self.ic = lumapi.INTERCONNECT(self.icp_path, hide=True)
+        # Crear INTERCONNECT desde cero (NO cargar archivo existente)
+        print("Creando nueva sesión de INTERCONNECT...")
+        self.ic = lumapi.INTERCONNECT(hide=not show_interconnect)
+        
+        # CRÍTICO: Cambiar a modo diseño
+        self.ic.switchtodesign()
+        
+        # IMPORTANTE: Crear un proyecto nuevo vacío (no usar weight_bank)
+        try:
+            self.ic.newproject()
+            print("✓ Proyecto nuevo vacío creado")
+        except:
+            # Si newproject() falla, intentar con deleteall para limpiar
+            try:
+                self.ic.deleteall()
+                print("✓ Sesión de INTERCONNECT limpiada")
+            except:
+                print("⚠ No se pudo limpiar completamente - puede haber elementos residuales")
         
         # Importar la configuración de componentes de la plataforma
         if self.platform == 'sipho':
@@ -43,6 +60,11 @@ class MZIMeshSimulator:
         
         self.components = COMPONENTS
         print(f"✓ MZI Mesh Simulator inicializado para plataforma: {self.platform.upper()}")
+        print(f"✓ Nueva sesión de INTERCONNECT creada desde cero")
+        if show_interconnect:
+            print("✓ INTERCONNECT visible - puedes ver la simulación en tiempo real")
+            print("⚠ IMPORTANTE: INTERCONNECT permanecerá abierto después de la simulación")
+            print("  Cierra manualmente la ventana cuando termines de analizar los resultados")
     
     def add_phase_shifter(self, name, angle, xpos=0, ypos=0):
         """
@@ -352,7 +374,11 @@ class MZIMeshSimulator:
             visualize: Si True, muestra el mesh
             
         Returns:
-            Resultado de la multiplicación vectorial
+            dict: {
+                'measured': resultados medidos del mesh,
+                'theoretical': resultados teóricos,
+                'errors': errores relativos
+            }
         """
         dim = unitary_matrix.shape[0]
         v_theoretical = unitary_matrix @ input_vector
@@ -381,6 +407,7 @@ class MZIMeshSimulator:
         # Ejecutar simulación
         print("Ejecutando simulación INTERCONNECT...")
         self.ic.run()
+        print("✓ Simulación completada")
         
         # Obtener resultados
         print("Obteniendo resultados...")
@@ -388,6 +415,13 @@ class MZIMeshSimulator:
         
         # Calcular resultado teórico en forma polar
         v_res_sq_polar = [(abs(z), cmath.phase(z)) for z in v_theoretical**2]
+        
+        # Calcular error
+        errors = []
+        for i in range(dim):
+            mag_error = abs(results[i][0] - v_res_sq_polar[i][0]) / (v_res_sq_polar[i][0] + 1e-10)
+            phase_error = abs(results[i][1] - v_res_sq_polar[i][1])
+            errors.append((mag_error, phase_error))
         
         print(f"\n{'='*60}")
         print("RESULTADOS")
@@ -399,11 +433,41 @@ class MZIMeshSimulator:
         print("\nResultado del Mesh (|v|², fase):")
         for i, (mag, phase) in enumerate(results):
             print(f"  [{i}]: {mag:.6f}, {phase:.4f} rad")
+        
+        print("\nError relativo (mag, fase):")
+        for i, (mag_err, phase_err) in enumerate(errors):
+            print(f"  [{i}]: {mag_err*100:.2f}%, {phase_err:.4f} rad")
         print(f"{'='*60}\n")
         
-        return results
+        return {
+            'measured': results,
+            'theoretical': v_res_sq_polar,
+            'errors': errors
+        }
+    
+    def save_design(self, filename):
+        """
+        Guarda el diseño actual en un archivo .icp
+        
+        Args:
+            filename: Ruta del archivo donde guardar (ej: "mi_mesh.icp")
+        """
+        self.ic.save(filename)
+        print(f"✓ Diseño guardado en: {filename}")
     
     def close(self):
-        """Cierra la sesión de INTERCONNECT"""
-        self.ic.close()
-        print("✓ Sesión de INTERCONNECT cerrada")
+        """Cierra la sesión de INTERCONNECT (solo si está oculto)"""
+        if self.show_interconnect:
+            print("\n" + "="*60)
+            print("✓ Simulación completada")
+            print("="*60)
+            print("⚠ INTERCONNECT permanece ABIERTO para que puedas:")
+            print("  • Inspeccionar la red construida")
+            print("  • Revisar los resultados en los power meters")
+            print("  • Exportar datos manualmente")
+            print("  • Guardar el archivo .icp si lo deseas (File > Save)")
+            print("\n👉 Cierra manualmente INTERCONNECT cuando termines")
+            print("="*60 + "\n")
+        else:
+            self.ic.close()
+            print("✓ Sesión de INTERCONNECT cerrada")

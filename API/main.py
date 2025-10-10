@@ -38,105 +38,50 @@ class API:
         
         if not os.path.exists(cache_folder):
             print(f"⚠ Warning: Cache folder '{cache_folder}' does not exist. Creating it...")
-            os.makedirs(cache_folder, exist_ok=True)
+            os.makedirs(cache_folder)
         
-        wgT = []
-        activebentwg = []
-        passivebentwg = []
-        neff = []
-
-        print(f"📂 Loading cache from: {cache_folder}")
-
-        for root, subdirs, files in os.walk(cache_folder):
-            for filename in files:
-                # heat sim files
-                if filename.startswith("wgT_") and filename.endswith(".mat"):
-                    parts = filename.split("_")
-                    if len(parts) >= 4:
-                        _, min_v, max_v, interval_v = parts[0], parts[1], parts[2], parts[3]
-                        wgT.append({
-                            "min_v": float(min_v),
-                            "max_v": float(max_v),
-                            "interval_v": float(interval_v),
-                            "filename": filename,
-                        })
-
-                elif filename.startswith("neff_") and filename.endswith(".txt"):
-                    parts = filename.split("_")
-                    if len(parts) >= 5:
-                        _, laser_wavelength, min_v, max_v, interval_v = parts[0], parts[1], parts[2], parts[3], parts[4]
-                        neff.append({
-                            "laser_wavelength": float(laser_wavelength),
-                            "min_v": float(min_v),
-                            "max_v": float(max_v),
-                            "interval_v": float(interval_v),
-                            "filename": filename,
-                        })
-
-                elif filename.startswith("activebentwg_") and filename.endswith(".ldf"):
-                    parts = filename.split("_")
-                    if len(parts) >= 6:
-                        _, start_wavelength, end_wavelength, min_v, max_v, interval_v = parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]
-                        activebentwg.append({
-                            "start_wavelength": float(start_wavelength),
-                            "end_wavelength": float(end_wavelength),
-                            "min_v": float(min_v),
-                            "max_v": float(max_v),
-                            "interval_v": float(interval_v),
-                            "filename": filename,
-                        })
-
-                elif filename.startswith("passivebentwg_") and filename.endswith(".ldf"):
-                    parts = filename.split("_")
-                    if len(parts) >= 3:
-                        _, start_wavelength, end_wavelength = parts[0], parts[1], parts[2]
-                        passivebentwg.append({
-                            "start_wavelength": float(start_wavelength),
-                            "end_wavelength": float(end_wavelength),
-                            "filename": filename,
-                        })
-            break
-
-        self.wgT = wgT
-        self.activebentwg = activebentwg
-        self.passivebentwg = passivebentwg
-        self.neff = neff
+        # Try to read cache files
+        cache_heat = f"{cache_folder}/heat.json"
+        cache_passivebentwg = f"{cache_folder}/passivebentwg.json"
+        cache_activebentwg = f"{cache_folder}/activebentwg.json"
+        cache_neff = f"{cache_folder}/neff.json"
         
-        print(f"  ✓ Loaded: {len(wgT)} heat sims | {len(activebentwg)} active WG | {len(passivebentwg)} passive WG | {len(neff)} neff")
-
-    def get_param_suggestions(self):
-        print("📋 Getting parameter suggestions from cache...")
-        # fallbacks if no files in cache
-        laser_wavelength = 1545e-9
-        min_v = 4.5
-        max_v = 4.6
-        interval_v = 0.001
-        wavelength_window = 25e-9
-
-        if len(self.neff) > 0:
-            # take last file in cache for suggested values
-            last_sim = self.neff[-1]
-            laser_wavelength = last_sim['laser_wavelength']
-            min_v = last_sim['min_v']
-            max_v = last_sim['max_v']
-            interval_v = last_sim['interval_v']
-
-        constant_v = min_v if min_v > 0 else 4.5
-
-        return {
-            'laser_wavelength': '%.3e' % laser_wavelength,
-            'wavelength_window': '%.2e' % wavelength_window,
-            'min_v': str(min_v),
-            'max_v': str(max_v),
-            'interval_v': str(interval_v),
-            'constant_v': str(constant_v)
-        }
+        # Initialize empty cache lists
+        self.heat = []
+        self.passivebentwg = []
+        self.activebentwg = []
+        self.neff = []
+        
+        # Load each cache file if it exists
+        import json
+        
+        if os.path.exists(cache_heat):
+            with open(cache_heat, 'r') as f:
+                self.heat = json.load(f)
+        
+        if os.path.exists(cache_passivebentwg):
+            with open(cache_passivebentwg, 'r') as f:
+                self.passivebentwg = json.load(f)
+        
+        if os.path.exists(cache_activebentwg):
+            with open(cache_activebentwg, 'r') as f:
+                self.activebentwg = json.load(f)
+        
+        if os.path.exists(cache_neff):
+            with open(cache_neff, 'r') as f:
+                self.neff = json.load(f)
+        
+        print(f"✓ Cache loaded from: {cache_folder}")
+        print(f"  • Heat simulations: {len(self.heat)}")
+        print(f"  • Passive bent WG simulations: {len(self.passivebentwg)}")
+        print(f"  • Active bent WG simulations: {len(self.activebentwg)}")
+        print(f"  • Effective index simulations: {len(self.neff)}")
 
     def get_heat_sim(self):
         cached_to_use = None
-        for cached in self.wgT:
-            if (self.inputs['max_v'] <= cached['max_v'] and
-                self.inputs['min_v'] >= cached['min_v'] and
+        for cached in self.heat:
+            if (self.inputs['min_v'] >= cached['min_v'] and
+                self.inputs['max_v'] <= cached['max_v'] and
                 self.inputs['interval_v'] >= cached['interval_v']):
                 cached_to_use = cached
                 break
@@ -146,13 +91,13 @@ class API:
             return f"{self.get_cache_folder()}/" + cached_to_use['filename']
         else:
             print("⚙ Running new heat simulation...")
-            return interface.heat(self.inputs)
+            filename = interface.heat(self.inputs)
+            return filename
 
     def get_passivebentwg_sim(self):
         cached_to_use = None
         for cached in self.passivebentwg:
-            if (self.inputs['start_wavelength'] >= cached['start_wavelength'] and
-                self.inputs['end_wavelength'] <= cached['end_wavelength']):
+            if (self.inputs['source_wavelength'] <= cached['laser_wavelength']):
                 cached_to_use = cached
                 break
 
@@ -161,7 +106,8 @@ class API:
             return f"{self.get_cache_folder()}/" + cached_to_use['filename']
         else:
             print("⚙ Running new passivebentwg simulation...")
-            return interface.passivebentwg(self.inputs)
+            filename = interface.passivebentwg(self.inputs)
+            return filename
 
     def get_activebentwg_sim(self):
         cached_to_use = None
@@ -169,8 +115,7 @@ class API:
             if (self.inputs['min_v'] >= cached['min_v'] and
                 self.inputs['max_v'] <= cached['max_v'] and
                 self.inputs['interval_v'] >= cached['interval_v'] and
-                self.inputs['start_wavelength'] >= cached['start_wavelength'] and
-                self.inputs['end_wavelength'] <= cached['end_wavelength']):
+                self.inputs['source_wavelength'] <= cached['laser_wavelength']):
                 cached_to_use = cached
                 break
 
@@ -239,7 +184,7 @@ class API:
 
         interface.interconnect(inputs, files)
 
-    def run_mzi_mesh(self, unitary_matrix, input_vector, visualize=False):
+    def run_mzi_mesh(self, unitary_matrix, input_vector, visualize=False, show_interconnect=False):
         """
         Ejecuta simulación de MZI Mesh para multiplicación matricial óptica
         
@@ -247,9 +192,10 @@ class API:
             unitary_matrix: Matriz unitaria numpy (N×N)
             input_vector: Vector de entrada numpy (N,)
             visualize: Si True, muestra el diagrama del mesh
+            show_interconnect: Si True, muestra la ventana de INTERCONNECT
             
         Returns:
-            Resultados de la simulación (lista de tuplas con magnitud y fase)
+            Resultados de la simulación (dict con measured, theoretical, errors)
         """
         from Lumerical.mzi_mesh import MZIMeshSimulator
         
@@ -260,10 +206,11 @@ class API:
         print(f"Matrix dimension: {unitary_matrix.shape[0]}×{unitary_matrix.shape[1]}")
         print(f"Input vector length: {len(input_vector)}")
         print(f"Visualize mesh: {visualize}")
+        print(f"Show INTERCONNECT: {show_interconnect}")
         print(f"{'='*70}\n")
         
         # Crear simulador con la plataforma actual
-        simulator = MZIMeshSimulator(platform=self.platform)
+        simulator = MZIMeshSimulator(platform=self.platform, show_interconnect=show_interconnect)
         
         # Ejecutar multiplicación matricial
         results = simulator.matrix_multiplication(
@@ -272,8 +219,12 @@ class API:
             visualize=visualize
         )
         
-        # Cerrar simulador
-        simulator.close()
+        # IMPORTANTE: NO cerrar el simulador si show_interconnect=True
+        # El usuario cerrará INTERCONNECT manualmente
+        if not show_interconnect:
+            simulator.close()
+        else:
+            print("\n⚠ INTERCONNECT permanece abierto - cierra manualmente cuando termines")
         
         print(f"\n{'='*70}")
         print("✓ MZI MESH SIMULATION COMPLETED")

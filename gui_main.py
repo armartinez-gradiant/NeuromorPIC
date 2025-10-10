@@ -1082,6 +1082,17 @@ class LumericalGUI:
         )
         normalize_checkbox.pack(anchor="w", pady=5)
         
+        self.show_interconnect_var = ctk.BooleanVar(value=False)
+        show_ic_checkbox = ctk.CTkCheckBox(
+            options_frame,
+            text="Mostrar ventana de INTERCONNECT (ver simulación en tiempo real)",
+            variable=self.show_interconnect_var,
+            font=ctk.CTkFont(size=13),
+            fg_color=THEME_COLOR,
+            hover_color=THEME_COLOR_HOVER
+        )
+        show_ic_checkbox.pack(anchor="w", pady=5)
+
         # ========== BOTONES ==========
         button_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         button_frame.pack(fill="x", pady=(20, 0))
@@ -1194,6 +1205,7 @@ class LumericalGUI:
                 'unitary_matrix': unitary_matrix,
                 'input_vector': input_vector,
                 'visualize': self.visualize_mesh_var.get(),
+                'show_interconnect': self.show_interconnect_var.get(),  # ← AÑADIR ESTA LÍNEA
                 'platform': self.selected_platform
             }
             

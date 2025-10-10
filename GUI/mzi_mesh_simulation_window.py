@@ -8,6 +8,7 @@ import threading
 
 # Colores del tema
 THEME_COLOR = "#E31E24"
+THEME_COLOR_HOVER = "#C41A1F"
 DARK_BG = "#1a1a1a"
 CARD_BG = "#252525"
 TEXT_PRIMARY = "#ffffff"
@@ -27,15 +28,15 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         self.error = None
         
         self.title("Simulación MZI Mesh en progreso...")
-        self.geometry("600x350")
+        self.geometry("700x500")
         self.transient(parent)
         self.grab_set()
         
         # Centrar ventana
         self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (600 // 2)
-        y = (self.winfo_screenheight() // 2) - (350 // 2)
-        self.geometry(f"600x350+{x}+{y}")
+        x = (self.winfo_screenwidth() // 2) - (700 // 2)
+        y = (self.winfo_screenheight() // 2) - (500 // 2)
+        self.geometry(f"700x500+{x}+{y}")
         
         # Configurar estilo
         self.configure(fg_color=DARK_BG)
@@ -78,7 +79,7 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         # Progress bar
         self.progress = ctk.CTkProgressBar(
             main_frame, 
-            width=500,
+            width=600,
             height=20,
             fg_color=CARD_BG,
             progress_color=THEME_COLOR
@@ -92,7 +93,7 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
             text="Inicializando simulación...",
             font=ctk.CTkFont(size=14),
             text_color=TEXT_PRIMARY,
-            wraplength=500
+            wraplength=600
         )
         self.status_label.pack(pady=10)
         
@@ -111,7 +112,7 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         
         self.details_text = ctk.CTkTextbox(
             details_frame,
-            height=100,
+            height=200,
             font=ctk.CTkFont(family="Courier", size=11),
             fg_color=DARK_BG,
             text_color=TEXT_SECONDARY,
@@ -139,51 +140,100 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
             # Fase 1: Inicialización
             self.update_status("Inicializando MZI Mesh Simulator...", 0.1)
             
-            # Fase 2: Construcción del mesh
-            self.update_status("Construyendo mesh de Mach-Zehnder...", 0.3)
+            # Fase 2: Descomposición matricial
+            self.update_status("Descomponiendo matriz unitaria...", 0.2)
             
-            # Fase 3: Ejecutar simulación
-            self.update_status("Ejecutando simulación INTERCONNECT...", 0.5)
+            # Fase 3: Construcción del mesh
+            self.update_status("Construyendo mesh de Mach-Zehnder...", 0.4)
             
-            # Llamar a la API
-            self.results = self.api.run_mzi_mesh(
+            # Fase 4: Ejecutar simulación
+            self.update_status("Ejecutando simulación en INTERCONNECT...", 0.6)
+            
+            # Llamar al API para ejecutar la simulación
+            show_ic = self.params.get('show_interconnect', False)
+            
+            results = self.api.run_mzi_mesh(
                 self.params['unitary_matrix'],
                 self.params['input_vector'],
-                visualize=self.params.get('visualize', False)
+                visualize=self.params['visualize'],
+                show_interconnect=show_ic
             )
             
-            # Fase 4: Procesando resultados
-            self.update_status("Procesando resultados...", 0.9)
+            # Fase 5: Recopilando resultados
+            self.update_status("Recopilando resultados...", 0.9)
             
-            # Fase 5: Completado
+            self.results = results
+            
+            # Finalizado
             self.update_status("✓ Simulación completada exitosamente", 1.0)
+            self.add_detail(f"\n{'='*50}")
+            self.add_detail("RESUMEN DE RESULTADOS:")
+            self.add_detail(f"{'='*50}")
             
-            # Esperar un momento antes de cerrar
-            self.after(1500, lambda: self.finish(True))
+            # Mostrar comparación de resultados
+            dim = len(results['measured'])
+            self.add_detail(f"\nDimensión: {dim}×{dim}")
+            self.add_detail(f"\nSalida Teórica vs Medida:")
+            for i in range(dim):
+                theo_mag, theo_phase = results['theoretical'][i]
+                meas_mag, meas_phase = results['measured'][i]
+                mag_err, phase_err = results['errors'][i]
+                
+                self.add_detail(f"\n  Salida [{i}]:")
+                self.add_detail(f"    Teórica:  |v|²={theo_mag:.6f}, φ={theo_phase:.4f} rad")
+                self.add_detail(f"    Medida:   |v|²={meas_mag:.6f}, φ={meas_phase:.4f} rad")
+                self.add_detail(f"    Error:    {mag_err*100:.2f}% mag, {phase_err:.4f} rad fase")
+            
+            self.add_detail(f"\n{'='*50}")
+            
+            # Si INTERCONNECT está visible, informar que permanece abierto
+            if show_ic:
+                self.add_detail("\n⚠ IMPORTANTE: INTERCONNECT permanece ABIERTO")
+                self.add_detail("Puedes:")
+                self.add_detail("  • Inspeccionar la red construida")
+                self.add_detail("  • Revisar resultados en los power meters")
+                self.add_detail("  • Guardar el archivo .icp (File > Save)")
+                self.add_detail("  • Exportar datos manualmente")
+                self.add_detail("\nCierra INTERCONNECT manualmente cuando termines")
+            
+            # Esperar 5 segundos antes de cerrar (en el main thread)
+            self.after(5000, self.finish_success)
             
         except Exception as e:
+            self.error = str(e)
+            self.update_status(f"✗ Error: {str(e)}", 0.0)
+            self.add_detail(f"\nError completo:\n{str(e)}")
+            
             import traceback
-            error_msg = str(e)
-            traceback_msg = traceback.format_exc()
+            self.add_detail(f"\nTraceback:\n{traceback.format_exc()}")
             
-            self.error = error_msg
-            self.update_status(f"✗ Error: {error_msg}", 1.0)
-            self.add_detail(f"\nTraceback completo:\n{traceback_msg}")
-            
-            # Esperar antes de cerrar
-            self.after(3000, lambda: self.finish(False))
+            # Esperar 8 segundos antes de cerrar (en el main thread)
+            self.after(8000, self.finish_error)
     
-    def finish(self, success):
-        """Finalizar y cerrar ventana"""
-        if self.callback:
-            self.callback(success, self.results, self.error)
-        self.destroy()
+    def finish_success(self):
+        """Finalizar con éxito"""
+        # Usar after para ejecutar en el main thread
+        def _finish():
+            if self.callback:
+                self.callback(success=True, results=self.results, error=None)
+            self.destroy()
+        
+        # Ejecutar en el main thread de Tkinter
+        self.after(0, _finish)
+    
+    def finish_error(self):
+        """Finalizar con error"""
+        # Usar after para ejecutar en el main thread
+        def _finish():
+            if self.callback:
+                self.callback(success=False, results=None, error=self.error)
+            self.destroy()
+        
+        # Ejecutar en el main thread de Tkinter
+        self.after(0, _finish)
     
     def on_closing(self):
         """Prevenir cierre durante simulación"""
         # Solo permitir cerrar si la simulación terminó
-        if self.progress.get() >= 1.0:
+        if self.progress.get() >= 1.0 or self.error is not None:
             self.destroy()
-        else:
-            # Mostrar mensaje
-            pass  # Ignorar intento de cierre
