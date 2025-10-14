@@ -34,7 +34,7 @@ class LumericalGUI:
         self.root = ctk.CTk()
         self.root.title("Lumerical Simulation Platform - Gradiant")
         self.root.geometry("1200x800")
-        
+        self.root.state('zoomed')
         # Color de fondo personalizado
         self.root.configure(fg_color=DARK_BG)
         
@@ -45,7 +45,17 @@ class LumericalGUI:
         self.selected_platform = "sipho"
         self.api.set_platform(self.selected_platform)
         self.api.load_cache()
-        self.defaults = self.api.get_param_suggestions()
+        self.defaults = {
+            'source_wavelength': '1.55e-6',
+            'wavelength_window': '20e-9',
+            'constant_v': '10.0',
+            'min_v': '0.0',
+            'max_v': '20.0',
+            'interval_v': '0.2',
+            'time_window': '5.12e-9',
+            'n_samples': '15360',
+            'output_dir': './results'
+        }
         
         # Variable para almacenar última configuración
         self.last_config = None
@@ -63,18 +73,26 @@ class LumericalGUI:
         self.setup_ui()
         
     def load_logo(self):
-        """Cargar el logo de Gradiant"""
+        """Cargar el logo de Gradiant con proporción correcta"""
         try:
             logo_path = os.path.join("GUI", "assets", "images", "gradiant_logo.png")
             logo_image = Image.open(logo_path)
+            
+            # Obtener tamaño original y calcular proporción
+            original_width, original_height = logo_image.size
+            target_height = 40
+            aspect_ratio = original_width / original_height
+            target_width = int(target_height * aspect_ratio)
+            
             self.logo = ctk.CTkImage(
                 light_image=logo_image,
                 dark_image=logo_image,
-                size=(150, 50)
+                size=(target_width, target_height)  # ← Tamaño con proporción correcta
             )
             print(f"✓ Logo cargado desde: {logo_path}")
+            print(f"✓ Tamaño ajustado: {target_width}x{target_height}")
         except Exception as e:
-            print(f"⚠️  No se pudo cargar el logo: {e}")
+            print(f"⚠️ No se pudo cargar el logo: {e}")
             self.logo = None
         
     def setup_ui(self):
