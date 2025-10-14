@@ -244,7 +244,7 @@ class API:
             input_vector: Vector de entrada numpy (N,)
             visualize: Si True, muestra el diagrama del mesh
             show_interconnect: Si True, muestra la ventana de INTERCONNECT
-            
+                
         Returns:
             Resultados de la simulación (dict con measured, theoretical, errors)
         """
@@ -270,12 +270,20 @@ class API:
             visualize=visualize
         )
         
-        # IMPORTANTE: NO cerrar el simulador si show_interconnect=True
-        # El usuario cerrará INTERCONNECT manualmente
-        if not show_interconnect:
-            simulator.close()
+        # ✅ CAMBIO CRÍTICO: Guardar referencia al simulador si INTERCONNECT debe permanecer abierto
+        # Esto evita que el garbage collector de Python elimine el objeto y cierre INTERCONNECT
+        if show_interconnect:
+            self._active_simulator = simulator  # ← LÍNEA CRÍTICA: Mantiene el objeto vivo
+            print("\n" + "="*70)
+            print("⚠ INTERCONNECT permanece ABIERTO")
+            print("="*70)
+            print("💡 El simulador permanecerá activo hasta que:")
+            print("   • Cierres INTERCONNECT manualmente, o")
+            print("   • Cierres la aplicación completa")
+            print("="*70 + "\n")
         else:
-            print("\n⚠ INTERCONNECT permanece abierto - cierra manualmente cuando termines")
+            # Si no debe mostrar INTERCONNECT, cerrar normalmente
+            simulator.close()
         
         print(f"\n{'='*70}")
         print("✓ MZI MESH SIMULATION COMPLETED")

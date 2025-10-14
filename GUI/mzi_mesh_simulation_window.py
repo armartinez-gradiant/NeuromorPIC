@@ -28,15 +28,15 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         self.error = None
         
         self.title("Simulación MZI Mesh en progreso...")
-        self.geometry("700x500")
+        self.geometry("700x550")  # ← Aumentado para el botón
         self.transient(parent)
         self.grab_set()
         
         # Centrar ventana
         self.update_idletasks()
         x = (self.winfo_screenwidth() // 2) - (700 // 2)
-        y = (self.winfo_screenheight() // 2) - (500 // 2)
-        self.geometry(f"700x500+{x}+{y}")
+        y = (self.winfo_screenheight() // 2) - (550 // 2)
+        self.geometry(f"700x550+{x}+{y}")
         
         # Configurar estilo
         self.configure(fg_color=DARK_BG)
@@ -112,7 +112,7 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         
         self.details_text = ctk.CTkTextbox(
             details_frame,
-            height=200,
+            height=180,  # ← Reducido para hacer espacio al botón
             font=ctk.CTkFont(family="Courier", size=11),
             fg_color=DARK_BG,
             text_color=TEXT_SECONDARY,
@@ -120,6 +120,18 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         )
         self.details_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
         self.details_text.configure(state="disabled")
+        
+        # ✅ Botón de cerrar (inicialmente oculto)
+        self.close_btn = ctk.CTkButton(
+            main_frame,
+            text="Cerrar Ventana (INTERCONNECT seguirá abierto)",
+            command=self.close_window_only,
+            fg_color=THEME_COLOR,
+            hover_color=THEME_COLOR_HOVER,
+            height=40,
+            font=ctk.CTkFont(size=13, weight="bold")
+        )
+        # NO hacer pack() aquí - se mostrará solo si show_interconnect=True
     
     def add_detail(self, message):
         """Añadir mensaje al log de detalles"""
@@ -196,8 +208,8 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
                 self.add_detail("  • Exportar datos manualmente")
                 self.add_detail("\nCierra INTERCONNECT manualmente cuando termines")
             
-            # Esperar 5 segundos antes de cerrar (en el main thread)
-            self.after(5000, self.finish_success)
+            # Esperar 2 segundos antes de cerrar (en el main thread)
+            self.after(2000, self.finish_success)
             
         except Exception as e:
             self.error = str(e)
@@ -212,28 +224,48 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
     
     def finish_success(self):
         """Finalizar con éxito"""
-        # Usar after para ejecutar en el main thread
+        show_ic = self.params.get('show_interconnect', False)
+        
         def _finish():
             if self.callback:
                 self.callback(success=True, results=self.results, error=None)
-            self.destroy()
+            
+            # ✅ CAMBIO CRÍTICO: Solo destruir si INTERCONNECT NO debe permanecer abierto
+            if not show_ic:
+                self.destroy()
+            else:
+                # Mostrar mensaje e informar
+                self.update_status("✓ Completado - INTERCONNECT permanece abierto", 1.0)
+                self.add_detail("\n" + "="*50)
+                self.add_detail("✅ PUEDES CERRAR ESTA VENTANA")
+                self.add_detail("="*50)
+                self.add_detail("\n⚠ INTERCONNECT sigue abierto para inspección")
+                self.add_detail("Cierra INTERCONNECT manualmente cuando termines.\n")
+                
+                # Mostrar botón de cerrar
+                self.close_btn.pack(pady=15)
+                
+                # Liberar el grab para que el usuario pueda interactuar con INTERCONNECT
+                self.grab_release()
         
         # Ejecutar en el main thread de Tkinter
         self.after(0, _finish)
     
     def finish_error(self):
         """Finalizar con error"""
-        # Usar after para ejecutar en el main thread
         def _finish():
             if self.callback:
                 self.callback(success=False, results=None, error=self.error)
             self.destroy()
         
-        # Ejecutar en el main thread de Tkinter
         self.after(0, _finish)
+    
+    def close_window_only(self):
+        """Cerrar solo la ventana de progreso, mantener INTERCONNECT abierto"""
+        self.destroy()
     
     def on_closing(self):
         """Prevenir cierre durante simulación"""
-        # Solo permitir cerrar si la simulación terminó
+        # Si la simulación terminó y show_interconnect=True, permitir cerrar
         if self.progress.get() >= 1.0 or self.error is not None:
             self.destroy()
