@@ -1,6 +1,7 @@
 """
 Ventana para ejecutar simulación de MZI Mesh
 Muestra el progreso de la simulación en una ventana modal
+CORREGIDO: Thread-safe para Tkinter y gestión de cierre mejorada
 """
 
 import customtkinter as ctk
@@ -28,7 +29,7 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         self.error = None
         
         self.title("Simulación MZI Mesh en progreso...")
-        self.geometry("700x550")  # ← Aumentado para el botón
+        self.geometry("700x550")
         self.transient(parent)
         self.grab_set()
         
@@ -112,7 +113,7 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         
         self.details_text = ctk.CTkTextbox(
             details_frame,
-            height=180,  # ← Reducido para hacer espacio al botón
+            height=180,
             font=ctk.CTkFont(family="Courier", size=11),
             fg_color=DARK_BG,
             text_color=TEXT_SECONDARY,
@@ -121,7 +122,7 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         self.details_text.pack(fill="both", expand=True, padx=15, pady=(0, 15))
         self.details_text.configure(state="disabled")
         
-        # ✅ Botón de cerrar (inicialmente oculto)
+        # Botón de cerrar (inicialmente oculto)
         self.close_btn = ctk.CTkButton(
             main_frame,
             text="Cerrar Ventana (INTERCONNECT seguirá abierto)",
@@ -134,17 +135,37 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         # NO hacer pack() aquí - se mostrará solo si show_interconnect=True
     
     def add_detail(self, message):
-        """Añadir mensaje al log de detalles"""
-        self.details_text.configure(state="normal")
-        self.details_text.insert("end", message + "\n")
-        self.details_text.see("end")
-        self.details_text.configure(state="disabled")
+        """
+        Añadir mensaje al log de detalles (THREAD-SAFE)
+        Programa la actualización en el hilo principal de Tkinter
+        """
+        def _update():
+            try:
+                self.details_text.configure(state="normal")
+                self.details_text.insert("end", message + "\n")
+                self.details_text.see("end")
+                self.details_text.configure(state="disabled")
+            except Exception:
+                pass  # La ventana podría haberse cerrado
+        
+        # Programar actualización en el hilo principal
+        self.after(0, _update)
     
     def update_status(self, message, progress):
-        """Actualizar estado de la simulación"""
-        self.status_label.configure(text=message)
-        self.progress.set(progress)
-        self.add_detail(f"[{int(progress*100)}%] {message}")
+        """
+        Actualizar estado de la simulación (THREAD-SAFE)
+        Programa la actualización en el hilo principal de Tkinter
+        """
+        def _update():
+            try:
+                self.status_label.configure(text=message)
+                self.progress.set(progress)
+                self.add_detail(f"[{int(progress*100)}%] {message}")
+            except Exception:
+                pass  # La ventana podría haberse cerrado
+        
+        # Programar actualización en el hilo principal
+        self.after(0, _update)
     
     def run_simulation(self):
         """Ejecutar la simulación en thread separado"""
@@ -227,26 +248,29 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
         show_ic = self.params.get('show_interconnect', False)
         
         def _finish():
-            if self.callback:
-                self.callback(success=True, results=self.results, error=None)
-            
-            # ✅ CAMBIO CRÍTICO: Solo destruir si INTERCONNECT NO debe permanecer abierto
-            if not show_ic:
-                self.destroy()
-            else:
-                # Mostrar mensaje e informar
-                self.update_status("✓ Completado - INTERCONNECT permanece abierto", 1.0)
-                self.add_detail("\n" + "="*50)
-                self.add_detail("✅ PUEDES CERRAR ESTA VENTANA")
-                self.add_detail("="*50)
-                self.add_detail("\n⚠ INTERCONNECT sigue abierto para inspección")
-                self.add_detail("Cierra INTERCONNECT manualmente cuando termines.\n")
+            try:
+                if self.callback:
+                    self.callback(success=True, results=self.results, error=None)
                 
-                # Mostrar botón de cerrar
-                self.close_btn.pack(pady=15)
-                
-                # Liberar el grab para que el usuario pueda interactuar con INTERCONNECT
-                self.grab_release()
+                # Solo destruir si INTERCONNECT NO debe permanecer abierto
+                if not show_ic:
+                    self.destroy()
+                else:
+                    # Mostrar mensaje e informar
+                    self.update_status("✓ Completado - INTERCONNECT permanece abierto", 1.0)
+                    self.add_detail("\n" + "="*50)
+                    self.add_detail("✅ PUEDES CERRAR ESTA VENTANA")
+                    self.add_detail("="*50)
+                    self.add_detail("\n⚠ INTERCONNECT sigue abierto para inspección")
+                    self.add_detail("Cierra INTERCONNECT manualmente cuando termines.\n")
+                    
+                    # Mostrar botón de cerrar
+                    self.close_btn.pack(pady=15)
+                    
+                    # Liberar el grab para que el usuario pueda interactuar con INTERCONNECT
+                    self.grab_release()
+            except Exception:
+                pass  # La ventana podría haberse cerrado
         
         # Ejecutar en el main thread de Tkinter
         self.after(0, _finish)
@@ -254,9 +278,12 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
     def finish_error(self):
         """Finalizar con error"""
         def _finish():
-            if self.callback:
-                self.callback(success=False, results=None, error=self.error)
-            self.destroy()
+            try:
+                if self.callback:
+                    self.callback(success=False, results=None, error=self.error)
+                self.destroy()
+            except Exception:
+                pass  # La ventana podría haberse cerrado
         
         self.after(0, _finish)
     

@@ -471,3 +471,45 @@ class MZIMeshSimulator:
         else:
             self.ic.close()
             print("✓ Sesión de INTERCONNECT cerrada")
+
+    def close(self):
+        """Cierra la sesión de INTERCONNECT"""
+        try:
+            if hasattr(self, 'ic') and self.ic is not None:
+                if self.show_interconnect:
+                    print("\n" + "="*60)
+                    print("✓ Simulación completada")
+                    print("="*60)
+                    print("⚠ INTERCONNECT permanece ABIERTO para que puedas:")
+                    print("  • Inspeccionar la red construida")
+                    print("  • Revisar los resultados en los power meters")
+                    print("  • Exportar datos manualmente")
+                    print("  • Guardar el archivo .icp si lo deseas (File > Save)")
+                    print("\n👉 Cierra manualmente INTERCONNECT cuando termines")
+                    print("="*60 + "\n")
+                    # NO cerrar si show_interconnect=True
+                else:
+                    # Cerrar solo si estaba oculto
+                    self.ic.close()
+                    print("✓ Sesión de INTERCONNECT cerrada")
+                    self.ic = None
+        except Exception as e:
+            print(f"⚠ Error al cerrar INTERCONNECT: {e}")
+
+
+    def __del__(self):
+        """
+        Destructor - asegurar que INTERCONNECT se cierre al eliminar el objeto
+        Esto previene procesos huérfanos
+        """
+        try:
+            # Solo cerrar si show_interconnect era False
+            # Si era True, el usuario debe cerrar manualmente
+            if hasattr(self, 'ic') and self.ic is not None and not self.show_interconnect:
+                try:
+                    self.ic.close()
+                except:
+                    pass  # Ignorar errores en el destructor
+        except:
+            pass  # Siempre ignorar errores en __del__            
+

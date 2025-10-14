@@ -82,6 +82,34 @@ class LumericalGUI:
         # Configurar la interfaz
         self.setup_ui()
         
+        # Configurar protocolo de cierre para limpiar recursos
+        self.root.protocol("WM_DELETE_WINDOW", self.on_app_closing)
+
+    def on_app_closing(self):
+        """
+        Manejar el cierre de la aplicación
+        Limpia todos los recursos activos de INTERCONNECT antes de cerrar
+        """
+        try:
+            # Limpiar simulador activo de MZI si existe
+            if hasattr(self.api, '_active_simulator') and self.api._active_simulator is not None:
+                print("\n🧹 Limpiando recursos de INTERCONNECT...")
+                try:
+                    # Intentar cerrar INTERCONNECT de forma limpia
+                    self.api._active_simulator.ic.close()
+                    print("✓ INTERCONNECT cerrado correctamente")
+                except Exception as e:
+                    print(f"⚠ No se pudo cerrar INTERCONNECT limpiamente: {e}")
+                finally:
+                    self.api._active_simulator = None
+        except Exception as e:
+            print(f"⚠ Error durante limpieza: {e}")
+        finally:
+            # Cerrar la ventana principal
+            print("👋 Cerrando aplicación...")
+            self.root.quit()
+            self.root.destroy()
+
     def load_logo(self):
         """Cargar el logo de Gradiant con proporción correcta"""
         try:

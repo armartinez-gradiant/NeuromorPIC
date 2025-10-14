@@ -260,6 +260,15 @@ class API:
         print(f"Show INTERCONNECT: {show_interconnect}")
         print(f"{'='*70}\n")
         
+        # Limpiar simulador anterior si existe
+        if hasattr(self, '_active_simulator') and self._active_simulator is not None:
+            print("🧹 Limpiando simulador anterior...")
+            try:
+                self._active_simulator.close()
+            except:
+                pass
+            self._active_simulator = None
+        
         # Crear simulador con la plataforma actual
         simulator = MZIMeshSimulator(platform=self.platform, show_interconnect=show_interconnect)
         
@@ -270,10 +279,9 @@ class API:
             visualize=visualize
         )
         
-        # ✅ CAMBIO CRÍTICO: Guardar referencia al simulador si INTERCONNECT debe permanecer abierto
-        # Esto evita que el garbage collector de Python elimine el objeto y cierre INTERCONNECT
+        # Guardar referencia al simulador si INTERCONNECT debe permanecer abierto
         if show_interconnect:
-            self._active_simulator = simulator  # ← LÍNEA CRÍTICA: Mantiene el objeto vivo
+            self._active_simulator = simulator
             print("\n" + "="*70)
             print("⚠ INTERCONNECT permanece ABIERTO")
             print("="*70)
@@ -290,3 +298,21 @@ class API:
         print(f"{'='*70}\n")
         
         return results
+    
+    def cleanup(self):
+        """
+        Limpia todos los recursos activos de simulación
+        Debe llamarse antes de cerrar la aplicación
+        """
+        try:
+            if hasattr(self, '_active_simulator') and self._active_simulator is not None:
+                print("\n🧹 Limpiando simulador activo...")
+                try:
+                    self._active_simulator.ic.close()
+                    print("✓ Simulador cerrado correctamente")
+                except Exception as e:
+                    print(f"⚠ Error al cerrar simulador: {e}")
+                finally:
+                    self._active_simulator = None
+        except Exception as e:
+            print(f"⚠ Error durante cleanup: {e}")
