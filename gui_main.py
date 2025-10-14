@@ -9,7 +9,7 @@ from PIL import Image
 import os
 import sys
 import warnings
-import sys
+import atexit
 
 # Suprimir warnings de threading de tkinter
 warnings.filterwarnings('ignore', category=RuntimeWarning)
@@ -18,16 +18,34 @@ warnings.filterwarnings('ignore', category=RuntimeWarning)
 class SuppressImageErrors:
     def __init__(self):
         self.stderr = sys.stderr
+        self.suppress_patterns = [
+            'Image.__del__',
+            'Tcl_AsyncDelete',
+            'main thread is not in main loop',
+            'async handler deleted by the wrong thread',
+            'RuntimeError: main thread is not in main loop'
+        ]
         
     def write(self, msg):
-        # Suprimir solo los errores de Image.__del__
-        if 'Image.__del__' not in msg and 'Tcl_AsyncDelete' not in msg:
+        # Suprimir errores relacionados con threading de Tkinter
+        if not any(pattern in msg for pattern in self.suppress_patterns):
             self.stderr.write(msg)
     
     def flush(self):
         self.stderr.flush()
 
 sys.stderr = SuppressImageErrors()
+
+# Registrar limpieza al salir
+def cleanup_on_exit():
+    """Limpieza final al salir del programa"""
+    try:
+        import gc
+        gc.collect()
+    except:
+        pass
+
+atexit.register(cleanup_on_exit)
 
 # ========== CONFIGURACIÓN DE TEMA PERSONALIZADO ==========
 THEME_COLOR = "#E31E24"  # Rojo Gradiant
@@ -88,6 +106,51 @@ class LumericalGUI:
     def on_app_closing(self):
         """
         Manejar el cierre de la aplicación
+        Limpia todos los recursos antes de cerrar
+        """
+        try:
+            # 1. Limpiar imágenes de Tkinter
+            print("\n🧹 Limpiando recursos de la GUI...")
+            if hasattr(self, 'logo') and self.logo is not None:
+                try:
+                    self.logo = None
+                    self._logo_pil = None
+                    print("✓ Logo limpiado")
+                except Exception as e:
+                    print(f"⚠ Error al limpiar logo: {e}")
+            
+            # 2. Limpiar simulador activo de MZI si existe
+            if hasattr(self.api, '_active_simulator') and self.api._active_simulator is not None:
+                print("🧹 Limpiando recursos de INTERCONNECT...")
+                try:
+                    self.api._active_simulator.ic.close()
+                    print("✓ INTERCONNECT cerrado correctamente")
+                except Exception as e:
+                    print(f"⚠ No se pudo cerrar INTERCONNECT: {e}")
+                finally:
+                    self.api._active_simulator = None
+            
+            # 3. Forzar garbage collection
+            import gc
+            gc.collect()
+            
+        except Exception as e:
+            print(f"⚠ Error durante limpieza: {e}")
+        finally:
+            # 4. Cerrar ventana
+            print("👋 Cerrando aplicación...")
+            try:
+                self.root.quit()
+            except:
+                pass
+            try:
+                self.root.destroy()
+            except:
+                pass    
+
+    def on_app_closing(self):
+        """
+        Manejar el cierre de la aplicación
         Limpia todos los recursos activos de INTERCONNECT antes de cerrar
         """
         try:
@@ -125,13 +188,17 @@ class LumericalGUI:
             self.logo = ctk.CTkImage(
                 light_image=logo_image,
                 dark_image=logo_image,
-                size=(target_width, target_height)  # ← Tamaño con proporción correcta
+                size=(target_width, target_height)
             )
+            # ✅ NUEVO: Mantener referencia a la imagen PIL
+            self._logo_pil = logo_image
+            
             print(f"✓ Logo cargado desde: {logo_path}")
             print(f"✓ Tamaño ajustado: {target_width}x{target_height}")
         except Exception as e:
             print(f"⚠️ No se pudo cargar el logo: {e}")
             self.logo = None
+            self._logo_pil = None
         
     def setup_ui(self):
         """Configurar todos los elementos de la interfaz"""

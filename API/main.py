@@ -7,7 +7,7 @@ class API:
     def __init__(self):
         self.init = True
         self.platform = 'sipho'  # Default platform
-
+        self._active_simulator = None
     def set_platform(self, platform):
         """
         Set the platform to use (sipho or sin)
@@ -207,6 +207,28 @@ class API:
         platform_path = f"Lumerical/platforms/{self.platform}/weight_bank.icp"
         print(f"📁 Using INTERCONNECT file: {platform_path}")
         return platform_path
+
+    def cleanup(self):
+        """Limpia todos los recursos activos de simulación"""
+        try:
+            if hasattr(self, '_active_simulator') and self._active_simulator is not None:
+                print("\n🧹 Limpiando simulador activo...")
+                try:
+                    self._active_simulator.close()
+                    print("✓ Simulador cerrado correctamente")
+                except Exception as e:
+                    print(f"⚠ Error al cerrar simulador: {e}")
+                finally:
+                    self._active_simulator = None
+        except Exception as e:
+            print(f"⚠ Error durante cleanup: {e}")
+
+    def __del__(self):
+        """Destructor - asegurar que se limpien recursos"""
+        try:
+            self.cleanup()
+        except:
+            pass
 
     def run(self, inputs):
         print("\n" + "="*70)
