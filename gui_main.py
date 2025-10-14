@@ -1035,10 +1035,10 @@ class LumericalGUI:
         
         # ========== SECCIÓN 1: DIMENSIÓN ==========
         dimension_card = self.create_section_card(scroll_frame, "📐 Dimensión del Sistema")
-        
+
         dim_frame = ctk.CTkFrame(dimension_card, fg_color="transparent")
         dim_frame.pack(fill="x", pady=(10, 20), padx=30)
-        
+
         dim_label = ctk.CTkLabel(
             dim_frame,
             text="Dimensión de la matriz (N×N):",
@@ -1046,19 +1046,31 @@ class LumericalGUI:
             text_color=TEXT_PRIMARY
         )
         dim_label.pack(side="left", padx=(0, 10))
-        
+
+        # ✅ NUEVO: Campo de entrada de texto en lugar de dropdown
         self.mesh_dimension_var = ctk.StringVar(value="4")
-        dim_options = ["2", "3", "4", "5", "6", "8"]
-        dim_dropdown = ctk.CTkOptionMenu(
+        dim_entry = ctk.CTkEntry(
             dim_frame,
-            variable=self.mesh_dimension_var,
-            values=dim_options,
-            fg_color=THEME_COLOR,
-            button_color=THEME_COLOR,
-            button_hover_color=THEME_COLOR_HOVER,
-            width=100
+            textvariable=self.mesh_dimension_var,
+            width=80,
+            height=35,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color=CARD_BG,
+            border_width=2,
+            border_color=THEME_COLOR,
+            justify="center"
         )
-        dim_dropdown.pack(side="left")
+        dim_entry.pack(side="left", padx=(0, 10))
+
+        # Texto de ayuda
+        dim_help = ctk.CTkLabel(
+            dim_frame,
+            text="(min: 2, recomendado: 2-20)",
+            font=ctk.CTkFont(size=11),
+            text_color=TEXT_SECONDARY
+        )
+        dim_help.pack(side="left")
+
         
         # ========== SECCIÓN 2: MATRIZ ==========
         matrix_card = self.create_section_card(scroll_frame, "🔢 Matriz Unitaria (U)")
@@ -1267,11 +1279,49 @@ class LumericalGUI:
         from scipy.stats import unitary_group
         
         try:
-            # Obtener dimensión
-            dim = int(self.mesh_dimension_var.get())
+            # ✅ VALIDACIÓN MEJORADA: Obtener y validar dimensión
+            dim_text = self.mesh_dimension_var.get().strip()
+            
+            # Verificar que sea un número
+            try:
+                dim = int(dim_text)
+            except ValueError:
+                self.show_error_dialog(
+                    "Error de Dimensión", 
+                    f"'{dim_text}' no es un número válido.\n\nPor favor ingresa un número entero."
+                )
+                return
+            
+            # Validar rango
+            if dim < 2:
+                self.show_error_dialog(
+                    "Error de Dimensión", 
+                    f"La dimensión debe ser al menos 2.\n\nDimensión ingresada: {dim}"
+                )
+                return
+            
+            if dim > 50:
+                # Advertencia para dimensiones grandes
+                from tkinter import messagebox
+                confirm = messagebox.askyesno(
+                    "Dimensión Grande",
+                    f"Has ingresado una dimensión de {dim}×{dim}.\n\n"
+                    f"Esto puede:\n"
+                    f"• Tomar mucho tiempo de simulación\n"
+                    f"• Consumir mucha memoria\n"
+                    f"• Hacer que INTERCONNECT se vuelva lento\n\n"
+                    f"¿Deseas continuar de todas formas?",
+                    icon='warning'
+                )
+                if not confirm:
+                    return
+            
+            print(f"✓ Dimensión validada: {dim}×{dim}")
             
             # Generar o leer matriz
             matrix_type = self.matrix_type_var.get()
+            
+
             if matrix_type == "random":
                 unitary_matrix = unitary_group.rvs(dim)
                 print(f"✓ Matriz aleatoria {dim}×{dim} generada")
