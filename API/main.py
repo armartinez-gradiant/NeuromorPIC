@@ -77,6 +77,57 @@ class API:
         print(f"  • Active bent WG simulations: {len(self.activebentwg)}")
         print(f"  • Effective index simulations: {len(self.neff)}")
 
+    def get_total_simulations(self):
+        """
+        Get the total number of cached simulations
+        
+        Returns:
+            int: Total number of simulations in cache
+        """
+        return len(self.heat) + len(self.passivebentwg) + len(self.activebentwg) + len(self.neff)
+
+    def get_cache_stats(self):
+        """
+        Get detailed cache statistics
+        
+        Returns:
+            dict: Dictionary with cache statistics
+        """
+        return {
+            'heat': len(self.heat),
+            'passivebentwg': len(self.passivebentwg),
+            'activebentwg': len(self.activebentwg),
+            'neff': len(self.neff),
+            'total': self.get_total_simulations()
+        }
+
+    def get_param_suggestions(self):
+        """
+        Get parameter suggestions based on the current platform
+        
+        Returns:
+            dict: Dictionary with suggested default parameters
+        """
+        defaults = {
+            'source_wavelength': '1.55e-6',
+            'wavelength_window': '20e-9',
+            'constant_v': '10.0',
+            'min_v': '0.0',
+            'max_v': '20.0',
+            'interval_v': '0.2',
+            'time_window': '5.12e-9',
+            'n_samples': '15360',
+            'output_dir': './results'
+        }
+        
+        # Ajustes específicos por plataforma si es necesario
+        if self.platform == 'sin':
+            # SiN puede tener parámetros ligeramente diferentes
+            # (ajustar si es necesario según las especificaciones)
+            pass
+        
+        return defaults
+
     def get_heat_sim(self):
         cached_to_use = None
         for cached in self.heat:
@@ -182,7 +233,7 @@ class API:
             print(f"  • {key}: {value}")
         print()
 
-        interface.interconnect(inputs, files)
+        return interface.interconnect(inputs, files)
 
     def run_mzi_mesh(self, unitary_matrix, input_vector, visualize=False, show_interconnect=False):
         """

@@ -8,6 +8,26 @@ from API.main import API
 from PIL import Image
 import os
 import sys
+import warnings
+import sys
+
+# Suprimir warnings de threading de tkinter
+warnings.filterwarnings('ignore', category=RuntimeWarning)
+
+# Redirigir stderr para suprimir errores específicos de Image
+class SuppressImageErrors:
+    def __init__(self):
+        self.stderr = sys.stderr
+        
+    def write(self, msg):
+        # Suprimir solo los errores de Image.__del__
+        if 'Image.__del__' not in msg and 'Tcl_AsyncDelete' not in msg:
+            self.stderr.write(msg)
+    
+    def flush(self):
+        self.stderr.flush()
+
+sys.stderr = SuppressImageErrors()
 
 # ========== CONFIGURACIÓN DE TEMA PERSONALIZADO ==========
 THEME_COLOR = "#E31E24"  # Rojo Gradiant
@@ -45,17 +65,7 @@ class LumericalGUI:
         self.selected_platform = "sipho"
         self.api.set_platform(self.selected_platform)
         self.api.load_cache()
-        self.defaults = {
-            'source_wavelength': '1.55e-6',
-            'wavelength_window': '20e-9',
-            'constant_v': '10.0',
-            'min_v': '0.0',
-            'max_v': '20.0',
-            'interval_v': '0.2',
-            'time_window': '5.12e-9',
-            'n_samples': '15360',
-            'output_dir': './results'
-        }
+        self.defaults = self.api.get_param_suggestions()
         
         # Variable para almacenar última configuración
         self.last_config = None
@@ -229,7 +239,7 @@ class LumericalGUI:
         
         self.cache_sipho_label = ctk.CTkLabel(
             cache_info_frame,
-            text=f"SiPho: {len(self.api.wgT)} sims",
+            text=f"SiPho: {self.api.get_total_simulations()} sims",
             font=ctk.CTkFont(size=12),
             text_color=TEXT_PRIMARY,
             anchor="w"
@@ -760,12 +770,12 @@ class LumericalGUI:
     def update_cache_info(self):
         """Actualizar información de cache"""
         current_platform = self.selected_platform
-        current_count = len(self.api.wgT)
+        current_count = self.api.get_total_simulations()  # ← CORREGIDO
         
         other_platform = "sin" if current_platform == "sipho" else "sipho"
         self.api.set_platform(other_platform)
         self.api.load_cache()
-        other_count = len(self.api.wgT)
+        other_count = self.api.get_total_simulations()  # ← CORREGIDO
         
         self.api.set_platform(current_platform)
         self.api.load_cache()
@@ -1100,7 +1110,7 @@ class LumericalGUI:
         )
         normalize_checkbox.pack(anchor="w", pady=5)
         
-        self.show_interconnect_var = ctk.BooleanVar(value=False)
+        self.show_interconnect_var = ctk.BooleanVar(value=True)
         show_ic_checkbox = ctk.CTkCheckBox(
             options_frame,
             text="Mostrar ventana de INTERCONNECT (ver simulación en tiempo real)",
@@ -1223,7 +1233,7 @@ class LumericalGUI:
                 'unitary_matrix': unitary_matrix,
                 'input_vector': input_vector,
                 'visualize': self.visualize_mesh_var.get(),
-                'show_interconnect': self.show_interconnect_var.get(),  # ← AÑADIR ESTA LÍNEA
+                'show_interconnect': self.show_interconnect_var.get(), 
                 'platform': self.selected_platform
             }
             
