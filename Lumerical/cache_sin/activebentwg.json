@@ -1,0 +1,16 @@
+[
+  {
+    "laser_wavelength": 1.5325e-06,
+    "min_v": 1.5575000000000001e-06,
+    "max_v": 4.5,
+    "interval_v": 4.6,
+    "filename": "activebentwg_1.5325e-06_1.5575000000000001e-06_4.5_4.6_0.1_.ldf"
+  },
+  {
+    "laser_wavelength": 1.5e-06,
+    "min_v": 1.6e-06,
+    "max_v": 0.0,
+    "interval_v": 20.0,
+    "filename": "activebentwg_1.5e-06_1.6e-06_0_20_0.2_.ldf"
+  }
+]

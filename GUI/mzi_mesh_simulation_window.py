@@ -137,110 +137,102 @@ class MZIMeshSimulationWindow(ctk.CTkToplevel):
     def add_detail(self, message):
         """
         Añadir mensaje al log de detalles (THREAD-SAFE)
-        Programa la actualización en el hilo principal de Tkinter
+        Programa la actualización en el thread principal
         """
-        def _update():
+        def _add():
             try:
                 self.details_text.configure(state="normal")
                 self.details_text.insert("end", message + "\n")
                 self.details_text.see("end")
                 self.details_text.configure(state="disabled")
-            except Exception:
-                pass  # La ventana podría haberse cerrado
+            except Exception as e:
+                print(f"Error añadiendo detalle: {e}")
         
-        # Programar actualización en el hilo principal
-        self.after(0, _update)
+        # Programar actualización en el thread principal
+        self.after(0, _add)
     
-    def update_status(self, message, progress):
+    def update_status(self, message, progress_value=None):
         """
-        Actualizar estado de la simulación (THREAD-SAFE)
-        Programa la actualización en el hilo principal de Tkinter
+        Actualizar el label de status (THREAD-SAFE)
         """
         def _update():
             try:
                 self.status_label.configure(text=message)
-                self.progress.set(progress)
-                self.add_detail(f"[{int(progress*100)}%] {message}")
-            except Exception:
-                pass  # La ventana podría haberse cerrado
+                if progress_value is not None:
+                    self.progress.set(progress_value)
+            except Exception as e:
+                print(f"Error actualizando status: {e}")
         
-        # Programar actualización en el hilo principal
+        # Programar actualización en el thread principal
+        self.after(0, _update)
+    
+    def update_progress(self, value):
+        """
+        Actualizar la barra de progreso (THREAD-SAFE)
+        Args:
+            value: float entre 0.0 y 1.0
+        """
+        def _update():
+            try:
+                self.progress.set(value)
+            except Exception as e:
+                print(f"Error actualizando progreso: {e}")
+        
+        # Programar actualización en el thread principal
         self.after(0, _update)
     
     def run_simulation(self):
-        """Ejecutar la simulación en thread separado"""
+        """Ejecutar la simulación MZI Mesh"""
         try:
-            # Fase 1: Inicialización
-            self.update_status("Inicializando MZI Mesh Simulator...", 0.1)
+            # Fase 1: Descomposición
+            self.update_status("Descomponiendo matriz unitaria...", 0.1)
+            self.add_detail("="*50)
+            self.add_detail("FASE 1: Descomposición de Matriz")
+            self.add_detail("="*50)
             
-            # Fase 2: Descomposición matricial
-            self.update_status("Descomponiendo matriz unitaria...", 0.2)
+            # Fase 2: Configuración
+            self.update_status("Configurando INTERCONNECT...", 0.3)
+            self.add_detail("\n" + "="*50)
+            self.add_detail("FASE 2: Configuración de INTERCONNECT")
+            self.add_detail("="*50)
             
-            # Fase 3: Construcción del mesh
-            self.update_status("Construyendo mesh de Mach-Zehnder...", 0.4)
+            # Fase 3: Ejecución
+            self.update_status("Ejecutando simulación en INTERCONNECT...", 0.5)
+            self.add_detail("\n" + "="*50)
+            self.add_detail("FASE 3: Ejecución de Simulación")
+            self.add_detail("="*50)
             
-            # Fase 4: Ejecutar simulación
-            self.update_status("Ejecutando simulación en INTERCONNECT...", 0.6)
-            
-            # Llamar al API para ejecutar la simulación
-            show_ic = self.params.get('show_interconnect', False)
-            
-            results = self.api.run_mzi_mesh(
-                self.params['unitary_matrix'],
-                self.params['input_vector'],
-                visualize=self.params['visualize'],
-                show_interconnect=show_ic
+            # EJECUTAR SIMULACIÓN REAL
+            self.results = self.api.run_mzi_mesh(
+                unitary_matrix=self.params['unitary_matrix'],
+                input_vector=self.params['input_vector'],
+                visualize=self.params.get('visualize', False),
+                show_interconnect=self.params.get('show_interconnect', False)
             )
             
-            # Fase 5: Recopilando resultados
-            self.update_status("Recopilando resultados...", 0.9)
-            
-            self.results = results
-            
-            # Finalizado
+            # Fase 4: Completado
             self.update_status("✓ Simulación completada exitosamente", 1.0)
-            self.add_detail(f"\n{'='*50}")
-            self.add_detail("RESUMEN DE RESULTADOS:")
-            self.add_detail(f"{'='*50}")
+            self.add_detail("\n" + "="*50)
+            self.add_detail("✓ SIMULACIÓN COMPLETADA")
+            self.add_detail("="*50)
             
-            # Mostrar comparación de resultados
-            dim = len(results['measured'])
-            self.add_detail(f"\nDimensión: {dim}×{dim}")
-            self.add_detail(f"\nSalida Teórica vs Medida:")
-            for i in range(dim):
-                theo_mag, theo_phase = results['theoretical'][i]
-                meas_mag, meas_phase = results['measured'][i]
-                mag_err, phase_err = results['errors'][i]
-                
-                self.add_detail(f"\n  Salida [{i}]:")
-                self.add_detail(f"    Teórica:  |v|²={theo_mag:.6f}, φ={theo_phase:.4f} rad")
-                self.add_detail(f"    Medida:   |v|²={meas_mag:.6f}, φ={meas_phase:.4f} rad")
-                self.add_detail(f"    Error:    {mag_err*100:.2f}% mag, {phase_err:.4f} rad fase")
+            if self.results:
+                self.add_detail(f"\nError promedio: {self.results.get('avg_error', 'N/A')}")
+                self.add_detail(f"Error máximo: {self.results.get('max_error', 'N/A')}")
             
-            self.add_detail(f"\n{'='*50}")
-            
-            # Si INTERCONNECT está visible, informar que permanece abierto
-            if show_ic:
-                self.add_detail("\n⚠ IMPORTANTE: INTERCONNECT permanece ABIERTO")
-                self.add_detail("Puedes:")
-                self.add_detail("  • Inspeccionar la red construida")
-                self.add_detail("  • Revisar resultados en los power meters")
-                self.add_detail("  • Guardar el archivo .icp (File > Save)")
-                self.add_detail("  • Exportar datos manualmente")
-                self.add_detail("\nCierra INTERCONNECT manualmente cuando termines")
-            
-            # Esperar 2 segundos antes de cerrar (en el main thread)
-            self.after(2000, self.finish_success)
+            # Programar cierre (en el main thread)
+            self.after(3000, self.finish_success)
             
         except Exception as e:
+            # Error durante simulación
             self.error = str(e)
-            self.update_status(f"✗ Error: {str(e)}", 0.0)
-            self.add_detail(f"\nError completo:\n{str(e)}")
+            self.update_status(f"✗ Error: {self.error}", 0.0)
+            self.add_detail("\n" + "="*50)
+            self.add_detail("✗ ERROR EN SIMULACIÓN")
+            self.add_detail("="*50)
+            self.add_detail(f"\n{self.error}\n")
             
-            import traceback
-            self.add_detail(f"\nTraceback:\n{traceback.format_exc()}")
-            
-            # Esperar 8 segundos antes de cerrar (en el main thread)
+            # Programar cerrar (en el main thread)
             self.after(8000, self.finish_error)
     
     def finish_success(self):

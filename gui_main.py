@@ -103,76 +103,6 @@ class LumericalGUI:
         # Configurar protocolo de cierre para limpiar recursos
         self.root.protocol("WM_DELETE_WINDOW", self.on_app_closing)
 
-    def on_app_closing(self):
-        """
-        Manejar el cierre de la aplicación
-        Limpia todos los recursos antes de cerrar
-        """
-        try:
-            # 1. Limpiar imágenes de Tkinter
-            print("\n Limpiando recursos de la GUI...")
-            if hasattr(self, 'logo') and self.logo is not None:
-                try:
-                    self.logo = None
-                    self._logo_pil = None
-                    print("✓ Logo limpiado")
-                except Exception as e:
-                    print(f"⚠ Error al limpiar logo: {e}")
-            
-            # 2. Limpiar simulador activo de MZI si existe
-            if hasattr(self.api, '_active_simulator') and self.api._active_simulator is not None:
-                print("🧹 Limpiando recursos de INTERCONNECT...")
-                try:
-                    self.api._active_simulator.ic.close()
-                    print("✓ INTERCONNECT cerrado correctamente")
-                except Exception as e:
-                    print(f"⚠ No se pudo cerrar INTERCONNECT: {e}")
-                finally:
-                    self.api._active_simulator = None
-            
-            # 3. Forzar garbage collection
-            import gc
-            gc.collect()
-            
-        except Exception as e:
-            print(f"⚠ Error durante limpieza: {e}")
-        finally:
-            # 4. Cerrar ventana
-            print("👋 Cerrando aplicación...")
-            try:
-                self.root.quit()
-            except:
-                pass
-            try:
-                self.root.destroy()
-            except:
-                pass    
-
-    def on_app_closing(self):
-        """
-        Manejar el cierre de la aplicación
-        Limpia todos los recursos activos de INTERCONNECT antes de cerrar
-        """
-        try:
-            # Limpiar simulador activo de MZI si existe
-            if hasattr(self.api, '_active_simulator') and self.api._active_simulator is not None:
-                print("\n🧹 Limpiando recursos de INTERCONNECT...")
-                try:
-                    # Intentar cerrar INTERCONNECT de forma limpia
-                    self.api._active_simulator.ic.close()
-                    print("✓ INTERCONNECT cerrado correctamente")
-                except Exception as e:
-                    print(f"⚠ No se pudo cerrar INTERCONNECT limpiamente: {e}")
-                finally:
-                    self.api._active_simulator = None
-        except Exception as e:
-            print(f"⚠ Error durante limpieza: {e}")
-        finally:
-            # Cerrar la ventana principal
-            print("👋 Cerrando aplicación...")
-            self.root.quit()
-            self.root.destroy()
-
     def load_logo(self):
         """Cargar el logo de Gradiant con proporción correcta"""
         try:
@@ -193,7 +123,6 @@ class LumericalGUI:
             
             # ✅ CRÍTICO: Mantener referencia fuerte a la imagen PIL
             # Esto evita que el garbage collector libere la imagen prematuramente
-            # y causa el error "RuntimeError: Tcl_AsyncDelete: async handler deleted by the wrong thread"
             self._logo_pil_reference = logo_image
             
             print(f"✓ Logo cargado desde: {logo_path}")
@@ -202,6 +131,78 @@ class LumericalGUI:
             print(f"⚠ No se pudo cargar el logo: {e}")
             self.logo = None
             self._logo_pil_reference = None
+
+    def on_app_closing(self):
+        """
+        Manejar el cierre de la aplicación
+        Limpia todos los recursos antes de cerrar
+        MEJORADO: Limpieza thread-safe de imágenes
+        """
+        try:
+            print("\n Limpiando recursos de la GUI...")
+            
+            # 1. Limpiar simulador activo de INTERCONNECT PRIMERO
+            if hasattr(self, 'api') and hasattr(self.api, '_active_simulator'):
+                if self.api._active_simulator is not None:
+                    print("   Limpiando INTERCONNECT...")
+                    try:
+                        self.api._active_simulator.ic.close()
+                        print("   ✓ INTERCONNECT cerrado")
+                    except Exception as e:
+                        print(f"   ⚠ Error cerrando INTERCONNECT: {e}")
+                    finally:
+                        self.api._active_simulator = None
+            
+            # 2. Limpiar imágenes de Tkinter EN EL THREAD PRINCIPAL
+            if hasattr(self, 'logo') and self.logo is not None:
+                try:
+                    # Eliminar la referencia al CTkImage
+                    self.logo = None
+                    print("   ✓ Logo CTkImage limpiado")
+                except Exception as e:
+                    print(f"   ⚠ Error limpiando logo: {e}")
+            
+            # 3. Limpiar la referencia PIL
+            if hasattr(self, '_logo_pil_reference') and self._logo_pil_reference is not None:
+                try:
+                    self._logo_pil_reference.close()
+                    self._logo_pil_reference = None
+                    print("   ✓ Logo PIL limpiado")
+                except Exception as e:
+                    print(f"   ⚠ Error limpiando logo PIL: {e}")
+            
+            # 4. Forzar garbage collection ANTES de destruir ventanas
+            import gc
+            gc.collect()
+            print("   ✓ Garbage collection ejecutado")
+            
+            # 5. Pequeña pausa para permitir que el GC termine
+            import time
+            time.sleep(0.1)
+            
+        except Exception as e:
+            print(f"⚠ Error durante limpieza: {e}")
+        finally:
+            # 6. Cerrar la aplicación
+            print(" Cerrando aplicación...")
+            try:
+                # Primero quit() para detener el mainloop
+                self.root.quit()
+            except:
+                pass
+            
+            # Luego un pequeño delay
+            try:
+                import time
+                time.sleep(0.05)
+            except:
+                pass
+            
+            # Finalmente destroy()
+            try:
+                self.root.destroy()
+            except:
+                pass
         
     def setup_ui(self):
         """Configurar todos los elementos de la interfaz"""
@@ -971,20 +972,28 @@ class LumericalGUI:
             print(f"  • {key}: {value}")
         print("\n" + "="*50)
         
+        # 1. PRIMERO: Guardar la configuración
         self.last_config = params
         
-        self.info_subtitle.configure(
-            text=f"Última configuración: {self.format_sim_type(params.get('sim_type', ''))} | "
-                 f"{self.format_heater_type(params.get('heater_sim_type', ''))} | "
-                 f"Plataforma: {self.selected_platform.upper()}"
-        )
-        
-        self.update_info_display()
-        
-        # Volver a Home
+        # 2. SEGUNDO: Volver a Home (esto recrea todos los widgets)
         self.navigate_to("home")
         
-        # Ejecutar simulación
+        # 3. TERCERO: Ahora SÍ podemos actualizar los widgets que acabamos de crear
+        # Actualizar subtitle DESPUÉS de que navigate_to() haya recreado los widgets
+        if hasattr(self, 'info_subtitle'):
+            try:
+                self.info_subtitle.configure(
+                    text=f"Última configuración: {self.format_sim_type(params.get('sim_type', ''))} | "
+                        f"{self.format_heater_type(params.get('heater_sim_type', ''))} | "
+                        f"Plataforma: {self.selected_platform.upper()}"
+                )
+            except Exception as e:
+                print(f"⚠ Error al actualizar info_subtitle: {e}")
+        
+        # 4. CUARTO: Actualizar el display de información
+        self.update_info_display()
+        
+        # 5. QUINTO: Ejecutar simulación
         from GUI.simulation_window import SimulationWindow
         SimulationWindow(
             parent=self.root,
@@ -1307,7 +1316,7 @@ class LumericalGUI:
                     "Dimensión Grande",
                     f"Has ingresado una dimensión de {dim}×{dim}.\n\n"
                     f"Esto puede:\n"
-                    f"• Tomar mucho tiempo de simulación\n"
+                    f"• Requerir mucho tiempo de simulación\n"
                     f"• Consumir mucha memoria\n"
                     f"• Hacer que INTERCONNECT se vuelva lento\n\n"
                     f"¿Deseas continuar de todas formas?",

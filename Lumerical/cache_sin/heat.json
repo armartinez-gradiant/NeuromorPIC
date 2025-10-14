@@ -1,0 +1,14 @@
+[
+  {
+    "min_v": 0.0,
+    "max_v": 20.0,
+    "interval_v": 0.2,
+    "filename": "wgT_0_20_0.2_.mat"
+  },
+  {
+    "min_v": 4.5,
+    "max_v": 4.6,
+    "interval_v": 0.1,
+    "filename": "wgT_4.5_4.6_0.1_.mat"
+  }
+]

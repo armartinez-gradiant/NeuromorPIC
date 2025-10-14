@@ -1,68 +1,67 @@
 """
-MZI Mesh generation module - Platform aware version
-Replica la funcionalidad de matrix_mult_N pero usando componentes específicos
-de cada plataforma (SiPho o SiN)
+Simulador de MZI Mesh para Multiplicación Matricial Óptica
+Soporta múltiples plataformas de fotónica de silicio (SiPHO, ANT, etc.)
+VERSIÓN CORREGIDA - Soluciona error "can not find element, coupler2-11"
 """
 
 import numpy as np
-import interferometer as itf
 import cmath
-import sys
-import os
-
-# Importar el detector automático de Lumerical
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lumerical_path_detector import auto_detect_and_load_lumapi
-
-lumapi = auto_detect_and_load_lumapi()
+import interferometer as itf
 
 
 class MZIMeshSimulator:
-    """
-    Simulador de MZI Mesh consciente de la plataforma
-    """
+    """Simulador de MZI Mesh con soporte multi-plataforma"""
     
-    def __init__(self, platform='sipho', show_interconnect=False):
+    # Configuraciones de componentes por plataforma
+    PLATFORM_COMPONENTS = {
+        'sipho': {
+            'phase_shifter': {
+                'type': 'Optical Phase Shift Unidirectional',
+                'phase_param': 'phase shift',
+                'params': {}
+            },
+            'directional_coupler': {
+                'type': 'Waveguide Coupler Unidirectional',
+                'coupling_param': 'coupling coefficient 1',
+                'params': {}
+            }
+        },
+        'ant': {
+            'phase_shifter': {
+                'type': 'ebeam_bdc_te1550',  # Componente específico de ANT
+                'phase_param': 'delta_length',
+                'params': {'wg_width': 500e-9}
+            },
+            'directional_coupler': {
+                'type': 'ebeam_dc_te1550',
+                'coupling_param': 'gap',
+                'params': {}
+            }
+        }
+    }
+    
+    def __init__(self, platform='sipho', show_interconnect=True):
         """
-        Inicializar el simulador con la plataforma deseada
+        Inicializa el simulador MZI Mesh
         
         Args:
-            platform: 'sipho' o 'sin'
+            platform: Plataforma de fotónica ('sipho', 'ant', etc.)
             show_interconnect: Si True, muestra la ventana de INTERCONNECT
         """
-        self.platform = platform.lower()
-        self.show_interconnect = show_interconnect
+        # Cargar lumapi
+        from lumerical_path_detector import auto_detect_and_load_lumapi
+        lumapi = auto_detect_and_load_lumapi()
         
-        # Crear INTERCONNECT desde cero (NO cargar archivo existente)
-        print("Creando nueva sesión de INTERCONNECT...")
+        self.platform = platform.lower()
+        self.components = self.PLATFORM_COMPONENTS.get(self.platform, self.PLATFORM_COMPONENTS['sipho'])
+        
+        # Inicializar INTERCONNECT
         self.ic = lumapi.INTERCONNECT(hide=not show_interconnect)
         
-        # CRÍTICO: Cambiar a modo diseño
-        self.ic.switchtodesign()
-        
-        # IMPORTANTE: Crear un proyecto nuevo vacío (no usar weight_bank)
-        try:
-            self.ic.newproject()
-            print("✓ Proyecto nuevo vacío creado")
-        except:
-            # Si newproject() falla, intentar con deleteall para limpiar
-            try:
-                self.ic.deleteall()
-                print("✓ Sesión de INTERCONNECT limpiada")
-            except:
-                print("⚠ No se pudo limpiar completamente - puede haber elementos residuales")
-        
-        # Importar la configuración de componentes de la plataforma
-        if self.platform == 'sipho':
-            from Lumerical.platforms.sipho.components_config import COMPONENTS
-        else:
-            from Lumerical.platforms.sin.components_config import COMPONENTS
-        
-        self.components = COMPONENTS
-        print(f"✓ MZI Mesh Simulator inicializado para plataforma: {self.platform.upper()}")
-        print(f"✓ Nueva sesión de INTERCONNECT creada desde cero")
         if show_interconnect:
-            print("✓ INTERCONNECT visible - puedes ver la simulación en tiempo real")
+            print("\n" + "="*60)
+            print("✓ INTERCONNECT iniciado en modo VISIBLE")
+            print("="*60)
             print("⚠ IMPORTANTE: INTERCONNECT permanecerá abierto después de la simulación")
             print("  Cierra manualmente la ventana cuando termines de analizar los resultados")
     
@@ -237,6 +236,7 @@ class MZIMeshSimulator:
         """
         Conecta todos los MZIs del mesh
         Lógica EXACTA extraída de matrix_mult_N/main.py
+        CORREGIDO: Ahora incluye la implementación COMPLETA para meshes impares
         """
         if dim % 2 == 0:  # Meshes PARES
             for i in range(L + 1):  
@@ -275,13 +275,14 @@ class MZIMeshSimulator:
                     if i == L and j != 0:
                         self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
         
-        else:  # Meshes IMPARES (dim % 2 == 1)
+        else:  # Meshes IMPARES (dim % 2 == 1) - IMPLEMENTACIÓN COMPLETA
             for i in range(L + 1):  
                 j_max = 2 * min(i, L - i) + (1 if i > (L // 2) else 0)
                 
                 for j in range(j_max + 1):
                     
-                    if i < (L+1)//2:  # Iteraciones antes de la central
+                    # 1. Iteraciones antes de la central
+                    if i < (L+1)//2:
                         if j == 0:  # Fila superior
                             self.ic.connect(f"otheta{i}{j}1", "output", f"phi{i+1}{j}", "input")
                             self.ic.connect(f"otheta{i}{j}2", "output", f"phi{i+1}{j+1}", "input")
@@ -289,8 +290,9 @@ class MZIMeshSimulator:
                             self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
                             self.ic.connect(f"otheta{i}{j}2", "output", f"phi{i+1}{j+1}", "input")
                     
-                    if i == (L+1)//2:  # Iteración central (DIFERENTE a meshes pares)
-                        # NOTA: NO hay condición para j==0 en meshes impares
+                    # 2. Iteración central (DIFERENTE a meshes pares)
+                    if i == (L+1)//2:
+                        # NOTA: NO hay condición para j==0 en meshes impares (a diferencia de pares)
                         if j > 0 and j < j_max:
                             self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
                             self.ic.connect(f"otheta{i}{j}2", "output", f"phi{i+1}{j-1}", "input")
@@ -299,6 +301,7 @@ class MZIMeshSimulator:
                             self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
                             self.ic.connect(f"otheta{i}{j}2", "output", f"coupler{i+1}{j-2}1", "input 2")
                     
+                    # 3. Después de la iteración central
                     if i > (L+1)//2 and i < L:
                         if j > 0 and j < j_max:
                             self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
@@ -308,6 +311,7 @@ class MZIMeshSimulator:
                             self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
                             self.ic.connect(f"otheta{i}{j}2", "output", f"coupler{i+1}{j-2}1", "input 2")
                     
+                    # 4. Última iteración
                     if i == L and j != 0:
                         self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
     

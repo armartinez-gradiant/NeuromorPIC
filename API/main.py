@@ -1,3 +1,9 @@
+"""
+API Module
+Acts as the middleman between GUI/CLI and Lumerical
+Manages cache, platform selection, and simulation orchestration
+"""
+
 import os
 from pprint import pprint
 from Lumerical import interface
@@ -8,6 +14,7 @@ class API:
         self.init = True
         self.platform = 'sipho'  # Default platform
         self._active_simulator = None
+    
     def set_platform(self, platform):
         """
         Set the platform to use (sipho or sin)
@@ -40,11 +47,13 @@ class API:
             print(f"⚠ Warning: Cache folder '{cache_folder}' does not exist. Creating it...")
             os.makedirs(cache_folder)
         
-        # Try to read cache files
-        cache_heat = f"{cache_folder}/heat.json"
-        cache_passivebentwg = f"{cache_folder}/passivebentwg.json"
-        cache_activebentwg = f"{cache_folder}/activebentwg.json"
-        cache_neff = f"{cache_folder}/neff.json"
+        # Define cache files
+        cache_files = {
+            'heat': f"{cache_folder}/heat.json",
+            'passivebentwg': f"{cache_folder}/passivebentwg.json",
+            'activebentwg': f"{cache_folder}/activebentwg.json",
+            'neff': f"{cache_folder}/neff.json"
+        }
         
         # Initialize empty cache lists
         self.heat = []
@@ -55,27 +64,31 @@ class API:
         # Load each cache file if it exists
         import json
         
-        if os.path.exists(cache_heat):
-            with open(cache_heat, 'r') as f:
-                self.heat = json.load(f)
-        
-        if os.path.exists(cache_passivebentwg):
-            with open(cache_passivebentwg, 'r') as f:
-                self.passivebentwg = json.load(f)
-        
-        if os.path.exists(cache_activebentwg):
-            with open(cache_activebentwg, 'r') as f:
-                self.activebentwg = json.load(f)
-        
-        if os.path.exists(cache_neff):
-            with open(cache_neff, 'r') as f:
-                self.neff = json.load(f)
+        for cache_type, cache_path in cache_files.items():
+            try:
+                if os.path.exists(cache_path):
+                    with open(cache_path, 'r') as f:
+                        data = json.load(f)
+                        setattr(self, cache_type, data)
+                    print(f"  ✓ Loaded {len(data)} {cache_type} simulations")
+                else:
+                    # Crear archivo vacío si no existe
+                    print(f"  ⚠ {cache_type}.json no existe, creando archivo vacío...")
+                    with open(cache_path, 'w') as f:
+                        json.dump([], f)
+                    setattr(self, cache_type, [])
+            except json.JSONDecodeError as e:
+                print(f"  ❌ Error al leer {cache_path}: {e}")
+                print(f"     Creando archivo vacío...")
+                with open(cache_path, 'w') as f:
+                    json.dump([], f)
+                setattr(self, cache_type, [])
+            except Exception as e:
+                print(f"  ❌ Error inesperado con {cache_path}: {e}")
+                setattr(self, cache_type, [])
         
         print(f"✓ Cache loaded from: {cache_folder}")
-        print(f"  • Heat simulations: {len(self.heat)}")
-        print(f"  • Passive bent WG simulations: {len(self.passivebentwg)}")
-        print(f"  • Active bent WG simulations: {len(self.activebentwg)}")
-        print(f"  • Effective index simulations: {len(self.neff)}")
+        print(f"  • Total simulations: {self.get_total_simulations()}")
 
     def get_total_simulations(self):
         """
@@ -320,21 +333,3 @@ class API:
         print(f"{'='*70}\n")
         
         return results
-    
-    def cleanup(self):
-        """
-        Limpia todos los recursos activos de simulación
-        Debe llamarse antes de cerrar la aplicación
-        """
-        try:
-            if hasattr(self, '_active_simulator') and self._active_simulator is not None:
-                print("\n🧹 Limpiando simulador activo...")
-                try:
-                    self._active_simulator.ic.close()
-                    print("✓ Simulador cerrado correctamente")
-                except Exception as e:
-                    print(f"⚠ Error al cerrar simulador: {e}")
-                finally:
-                    self._active_simulator = None
-        except Exception as e:
-            print(f"⚠ Error durante cleanup: {e}")
