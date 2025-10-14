@@ -66,6 +66,14 @@ class MZIMeshSimulator:
             print("⚠ IMPORTANTE: INTERCONNECT permanecerá abierto después de la simulación")
             print("  Cierra manualmente la ventana cuando termines de analizar los resultados")
     
+    def close(self):
+        """Cerrar INTERCONNECT"""
+        try:
+            self.ic.close()
+            print("✓ INTERCONNECT cerrado")
+        except Exception as e:
+            print(f"⚠ Error al cerrar INTERCONNECT: {e}")
+    
     def add_phase_shifter(self, name, angle, xpos=0, ypos=0):
         """
         Añade un phase shifter usando el componente específico de la plataforma
@@ -228,13 +236,14 @@ class MZIMeshSimulator:
     def _connect_mesh(self, dim, L):
         """
         Conecta todos los MZIs del mesh
-        Lógica completa extraída de matrix_mult_N
+        Lógica EXACTA extraída de matrix_mult_N/main.py
         """
-        if dim % 2 == 0:  # Meshes pares
-            for i in range(L + 1):
+        if dim % 2 == 0:  # Meshes PARES
+            for i in range(L + 1):  
                 j_max = 2 * min(i, L - i) + (1 if i > (L // 2) else 0)
                 
                 for j in range(j_max + 1):
+                    
                     if i < (L+1)//2:  # Iteraciones impares excepto central
                         if j == 0:  # Fila superior
                             self.ic.connect(f"otheta{i}{j}1", "output", f"phi{i+1}{j}", "input")
@@ -244,7 +253,7 @@ class MZIMeshSimulator:
                             self.ic.connect(f"otheta{i}{j}2", "output", f"phi{i+1}{j+1}", "input")
                     
                     if i == (L+1)//2:  # Iteración central
-                        if j == 0:
+                        if j == 0:  # Primer elemento central
                             self.ic.connect(f"otheta{i}{j}2", "output", f"phi{i+1}{j}", "input")
                         elif j < j_max:
                             self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
@@ -266,20 +275,22 @@ class MZIMeshSimulator:
                     if i == L and j != 0:
                         self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
         
-        else:  # Meshes impares
-            for i in range(L + 1):
+        else:  # Meshes IMPARES (dim % 2 == 1)
+            for i in range(L + 1):  
                 j_max = 2 * min(i, L - i) + (1 if i > (L // 2) else 0)
                 
                 for j in range(j_max + 1):
-                    if i < (L+1)//2:
-                        if j == 0:
+                    
+                    if i < (L+1)//2:  # Iteraciones antes de la central
+                        if j == 0:  # Fila superior
                             self.ic.connect(f"otheta{i}{j}1", "output", f"phi{i+1}{j}", "input")
                             self.ic.connect(f"otheta{i}{j}2", "output", f"phi{i+1}{j+1}", "input")
-                        else:
+                        else:  # Elementos interiores
                             self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
                             self.ic.connect(f"otheta{i}{j}2", "output", f"phi{i+1}{j+1}", "input")
                     
-                    if i == (L+1)//2:
+                    if i == (L+1)//2:  # Iteración central (DIFERENTE a meshes pares)
+                        # NOTA: NO hay condición para j==0 en meshes impares
                         if j > 0 and j < j_max:
                             self.ic.connect(f"otheta{i}{j}1", "output", f"coupler{i}{j-1}1", "input 2")
                             self.ic.connect(f"otheta{i}{j}2", "output", f"phi{i+1}{j-1}", "input")
@@ -426,75 +437,17 @@ class MZIMeshSimulator:
         print(f"\n{'='*60}")
         print("RESULTADOS")
         print(f"{'='*60}")
-        print("Resultado Teórico (|v|², fase):")
-        for i, (mag, phase) in enumerate(v_res_sq_polar):
-            print(f"  [{i}]: {mag:.6f}, {phase:.4f} rad")
-        
-        print("\nResultado del Mesh (|v|², fase):")
-        for i, (mag, phase) in enumerate(results):
-            print(f"  [{i}]: {mag:.6f}, {phase:.4f} rad")
-        
-        print("\nError relativo (mag, fase):")
-        for i, (mag_err, phase_err) in enumerate(errors):
-            print(f"  [{i}]: {mag_err*100:.2f}%, {phase_err:.4f} rad")
-        print(f"{'='*60}\n")
+        print("Salida      | Teórica (|v|², φ)     | Medida (|v|², φ)      | Error (%)")
+        print("-" * 80)
+        for i in range(dim):
+            theo_mag, theo_phase = v_res_sq_polar[i]
+            meas_mag, meas_phase = results[i]
+            mag_err, phase_err = errors[i]
+            print(f"Salida [{i}]  | ({theo_mag:.6f}, {theo_phase:.4f}) | ({meas_mag:.6f}, {meas_phase:.4f}) | {mag_err*100:.2f}%")
+        print("=" * 80 + "\n")
         
         return {
             'measured': results,
             'theoretical': v_res_sq_polar,
             'errors': errors
         }
-    
-    def save_design(self, filename):
-        """
-        Guarda el diseño actual en un archivo .icp
-        
-        Args:
-            filename: Ruta del archivo donde guardar (ej: "mi_mesh.icp")
-        """
-        self.ic.save(filename)
-        print(f"✓ Diseño guardado en: {filename}")
-
-
-    def close(self):
-        """Cierra la sesión de INTERCONNECT"""
-        try:
-            if hasattr(self, 'ic') and self.ic is not None:
-                if self.show_interconnect:
-                    print("\n⚠ INTERCONNECT sigue abierto (close() llamado pero show_interconnect=True)")
-                    # NO cerrar si show_interconnect=True
-                else:
-                    self.ic.close()
-                    print("✓ Sesión de INTERCONNECT cerrada")
-                    self.ic = None
-        except Exception as e:
-            print(f"⚠ Error al cerrar INTERCONNECT: {e}")
-
-    def __del__(self):
-        """Destructor - asegurar cierre al eliminar el objeto"""
-        try:
-            if hasattr(self, 'ic') and self.ic is not None and not self.show_interconnect:
-                try:
-                    self.ic.close()
-                except:
-                    pass
-        except:
-            pass        
-
-
-    def __del__(self):
-        """
-        Destructor - asegurar que INTERCONNECT se cierre al eliminar el objeto
-        Esto previene procesos huérfanos
-        """
-        try:
-            # Solo cerrar si show_interconnect era False
-            # Si era True, el usuario debe cerrar manualmente
-            if hasattr(self, 'ic') and self.ic is not None and not self.show_interconnect:
-                try:
-                    self.ic.close()
-                except:
-                    pass  # Ignorar errores en el destructor
-        except:
-            pass  # Siempre ignorar errores en __del__            
-

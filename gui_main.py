@@ -110,7 +110,7 @@ class LumericalGUI:
         """
         try:
             # 1. Limpiar imágenes de Tkinter
-            print("\n🧹 Limpiando recursos de la GUI...")
+            print("\n Limpiando recursos de la GUI...")
             if hasattr(self, 'logo') and self.logo is not None:
                 try:
                     self.logo = None
@@ -190,15 +190,18 @@ class LumericalGUI:
                 dark_image=logo_image,
                 size=(target_width, target_height)
             )
-            # ✅ NUEVO: Mantener referencia a la imagen PIL
-            self._logo_pil = logo_image
+            
+            # ✅ CRÍTICO: Mantener referencia fuerte a la imagen PIL
+            # Esto evita que el garbage collector libere la imagen prematuramente
+            # y causa el error "RuntimeError: Tcl_AsyncDelete: async handler deleted by the wrong thread"
+            self._logo_pil_reference = logo_image
             
             print(f"✓ Logo cargado desde: {logo_path}")
             print(f"✓ Tamaño ajustado: {target_width}x{target_height}")
         except Exception as e:
-            print(f"⚠️ No se pudo cargar el logo: {e}")
+            print(f"⚠ No se pudo cargar el logo: {e}")
             self.logo = None
-            self._logo_pil = None
+            self._logo_pil_reference = None
         
     def setup_ui(self):
         """Configurar todos los elementos de la interfaz"""
