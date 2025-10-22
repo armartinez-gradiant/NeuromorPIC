@@ -8,44 +8,6 @@ from API.main import API
 from PIL import Image
 import os
 import sys
-import warnings
-import atexit
-
-# Suprimir warnings de threading de tkinter
-warnings.filterwarnings('ignore', category=RuntimeWarning)
-
-# Redirigir stderr para suprimir errores específicos de Image
-class SuppressImageErrors:
-    def __init__(self):
-        self.stderr = sys.stderr
-        self.suppress_patterns = [
-            'Image.__del__',
-            'Tcl_AsyncDelete',
-            'main thread is not in main loop',
-            'async handler deleted by the wrong thread',
-            'RuntimeError: main thread is not in main loop'
-        ]
-        
-    def write(self, msg):
-        # Suprimir errores relacionados con threading de Tkinter
-        if not any(pattern in msg for pattern in self.suppress_patterns):
-            self.stderr.write(msg)
-    
-    def flush(self):
-        self.stderr.flush()
-
-sys.stderr = SuppressImageErrors()
-
-# Registrar limpieza al salir
-def cleanup_on_exit():
-    """Limpieza final al salir del programa"""
-    try:
-        import gc
-        gc.collect()
-    except:
-        pass
-
-atexit.register(cleanup_on_exit)
 
 # ========== CONFIGURACIÓN DE TEMA PERSONALIZADO ==========
 THEME_COLOR = "#E31E24"  # Rojo Gradiant
@@ -72,7 +34,7 @@ class LumericalGUI:
         self.root = ctk.CTk()
         self.root.title("Lumerical Simulation Platform - Gradiant")
         self.root.geometry("1200x800")
-        self.root.state('zoomed')
+        
         # Color de fondo personalizado
         self.root.configure(fg_color=DARK_BG)
         
@@ -100,109 +62,20 @@ class LumericalGUI:
         # Configurar la interfaz
         self.setup_ui()
         
-        # Configurar protocolo de cierre para limpiar recursos
-        self.root.protocol("WM_DELETE_WINDOW", self.on_app_closing)
-
     def load_logo(self):
-        """Cargar el logo de Gradiant con proporción correcta"""
+        """Cargar el logo de Gradiant"""
         try:
             logo_path = os.path.join("GUI", "assets", "images", "gradiant_logo.png")
             logo_image = Image.open(logo_path)
-            
-            # Obtener tamaño original y calcular proporción
-            original_width, original_height = logo_image.size
-            target_height = 40
-            aspect_ratio = original_width / original_height
-            target_width = int(target_height * aspect_ratio)
-            
             self.logo = ctk.CTkImage(
                 light_image=logo_image,
                 dark_image=logo_image,
-                size=(target_width, target_height)
+                size=(150, 50)
             )
-            
-            # ✅ CRÍTICO: Mantener referencia fuerte a la imagen PIL
-            # Esto evita que el garbage collector libere la imagen prematuramente
-            self._logo_pil_reference = logo_image
-            
             print(f"✓ Logo cargado desde: {logo_path}")
-            print(f"✓ Tamaño ajustado: {target_width}x{target_height}")
         except Exception as e:
-            print(f"⚠ No se pudo cargar el logo: {e}")
+            print(f"⚠️  No se pudo cargar el logo: {e}")
             self.logo = None
-            self._logo_pil_reference = None
-
-    def on_app_closing(self):
-        """
-        Manejar el cierre de la aplicación
-        Limpia todos los recursos antes de cerrar
-        MEJORADO: Limpieza thread-safe de imágenes
-        """
-        try:
-            print("\n Limpiando recursos de la GUI...")
-            
-            # 1. Limpiar simulador activo de INTERCONNECT PRIMERO
-            if hasattr(self, 'api') and hasattr(self.api, '_active_simulator'):
-                if self.api._active_simulator is not None:
-                    print("   Limpiando INTERCONNECT...")
-                    try:
-                        self.api._active_simulator.ic.close()
-                        print("   ✓ INTERCONNECT cerrado")
-                    except Exception as e:
-                        print(f"   ⚠ Error cerrando INTERCONNECT: {e}")
-                    finally:
-                        self.api._active_simulator = None
-            
-            # 2. Limpiar imágenes de Tkinter EN EL THREAD PRINCIPAL
-            if hasattr(self, 'logo') and self.logo is not None:
-                try:
-                    # Eliminar la referencia al CTkImage
-                    self.logo = None
-                    print("   ✓ Logo CTkImage limpiado")
-                except Exception as e:
-                    print(f"   ⚠ Error limpiando logo: {e}")
-            
-            # 3. Limpiar la referencia PIL
-            if hasattr(self, '_logo_pil_reference') and self._logo_pil_reference is not None:
-                try:
-                    self._logo_pil_reference.close()
-                    self._logo_pil_reference = None
-                    print("   ✓ Logo PIL limpiado")
-                except Exception as e:
-                    print(f"   ⚠ Error limpiando logo PIL: {e}")
-            
-            # 4. Forzar garbage collection ANTES de destruir ventanas
-            import gc
-            gc.collect()
-            print("   ✓ Garbage collection ejecutado")
-            
-            # 5. Pequeña pausa para permitir que el GC termine
-            import time
-            time.sleep(0.1)
-            
-        except Exception as e:
-            print(f"⚠ Error durante limpieza: {e}")
-        finally:
-            # 6. Cerrar la aplicación
-            print(" Cerrando aplicación...")
-            try:
-                # Primero quit() para detener el mainloop
-                self.root.quit()
-            except:
-                pass
-            
-            # Luego un pequeño delay
-            try:
-                import time
-                time.sleep(0.05)
-            except:
-                pass
-            
-            # Finalmente destroy()
-            try:
-                self.root.destroy()
-            except:
-                pass
         
     def setup_ui(self):
         """Configurar todos los elementos de la interfaz"""
@@ -274,7 +147,6 @@ class LumericalGUI:
         
         self.nav_buttons['home'] = self.create_nav_button(sidebar_content, "🏠  Home", "home", enabled=True)
         self.nav_buttons['simulate'] = self.create_nav_button(sidebar_content, "🔬  Simulate", "simulate", enabled=True)
-        self.nav_buttons['mzi_mesh'] = self.create_nav_button(sidebar_content, "🔷  MZI Mesh", "mzi_mesh", enabled=True)
         self.nav_buttons['results'] = self.create_nav_button(sidebar_content, "📊  Results", "results", enabled=False)
         self.nav_buttons['history'] = self.create_nav_button(sidebar_content, "📝  History", "history", enabled=False)
         self.nav_buttons['settings'] = self.create_nav_button(sidebar_content, "⚙️  Settings", "settings", enabled=False)
@@ -338,7 +210,7 @@ class LumericalGUI:
         
         self.cache_sipho_label = ctk.CTkLabel(
             cache_info_frame,
-            text=f"SiPho: {self.api.get_total_simulations()} sims",
+            text=f"SiPho: {len(self.api.wgT)} sims",
             font=ctk.CTkFont(size=12),
             text_color=TEXT_PRIMARY,
             anchor="w"
@@ -408,8 +280,6 @@ class LumericalGUI:
             self.show_home()
         elif section == "simulate":
             self.show_simulate()
-        elif section == "mzi_mesh":
-            self.show_mzi_mesh()   
         elif section == "results":
             self.show_results()
         elif section == "history":
@@ -869,12 +739,12 @@ class LumericalGUI:
     def update_cache_info(self):
         """Actualizar información de cache"""
         current_platform = self.selected_platform
-        current_count = self.api.get_total_simulations()  # ← CORREGIDO
+        current_count = len(self.api.wgT)
         
         other_platform = "sin" if current_platform == "sipho" else "sipho"
         self.api.set_platform(other_platform)
         self.api.load_cache()
-        other_count = self.api.get_total_simulations()  # ← CORREGIDO
+        other_count = len(self.api.wgT)
         
         self.api.set_platform(current_platform)
         self.api.load_cache()
@@ -972,28 +842,20 @@ class LumericalGUI:
             print(f"  • {key}: {value}")
         print("\n" + "="*50)
         
-        # 1. PRIMERO: Guardar la configuración
         self.last_config = params
         
-        # 2. SEGUNDO: Volver a Home (esto recrea todos los widgets)
-        self.navigate_to("home")
+        self.info_subtitle.configure(
+            text=f"Última configuración: {self.format_sim_type(params.get('sim_type', ''))} | "
+                 f"{self.format_heater_type(params.get('heater_sim_type', ''))} | "
+                 f"Plataforma: {self.selected_platform.upper()}"
+        )
         
-        # 3. TERCERO: Ahora SÍ podemos actualizar los widgets que acabamos de crear
-        # Actualizar subtitle DESPUÉS de que navigate_to() haya recreado los widgets
-        if hasattr(self, 'info_subtitle'):
-            try:
-                self.info_subtitle.configure(
-                    text=f"Última configuración: {self.format_sim_type(params.get('sim_type', ''))} | "
-                        f"{self.format_heater_type(params.get('heater_sim_type', ''))} | "
-                        f"Plataforma: {self.selected_platform.upper()}"
-                )
-            except Exception as e:
-                print(f"⚠ Error al actualizar info_subtitle: {e}")
-        
-        # 4. CUARTO: Actualizar el display de información
         self.update_info_display()
         
-        # 5. QUINTO: Ejecutar simulación
+        # Volver a Home
+        self.navigate_to("home")
+        
+        # Ejecutar simulación
         from GUI.simulation_window import SimulationWindow
         SimulationWindow(
             parent=self.root,
@@ -1009,457 +871,7 @@ class LumericalGUI:
             self.update_cache_info()
         else:
             print(f"\n✗ Simulación falló: {error}")
-
-    def show_mzi_mesh(self):
-        """Mostrar interfaz de MZI Mesh"""
-        self.clear_content()
         
-        # Scrollable frame
-        scroll_frame = ctk.CTkScrollableFrame(
-            self.content_frame,
-            fg_color=DARK_BG,
-            scrollbar_button_color=CARD_BG,
-            scrollbar_button_hover_color=SIDEBAR_BG
-        )
-        scroll_frame.pack(fill="both", expand=True)
-        
-        # Título principal
-        title = ctk.CTkLabel(
-            scroll_frame,
-            text="🔷 MZI Mesh - Multiplicación Matricial Óptica",
-            font=ctk.CTkFont(size=24, weight="bold"),
-            text_color=TEXT_PRIMARY,
-            anchor="w"
-        )
-        title.pack(fill="x", pady=(0, 10))
-        
-        subtitle = ctk.CTkLabel(
-            scroll_frame,
-            text="Simula un mesh de Mach-Zehnder para realizar multiplicación matricial óptica (U @ v)",
-            font=ctk.CTkFont(size=13),
-            text_color=TEXT_SECONDARY,
-            anchor="w"
-        )
-        subtitle.pack(fill="x", pady=(0, 25))
-        
-        # ========== SECCIÓN 1: DIMENSIÓN ==========
-        dimension_card = self.create_section_card(scroll_frame, "📐 Dimensión del Sistema")
-
-        dim_frame = ctk.CTkFrame(dimension_card, fg_color="transparent")
-        dim_frame.pack(fill="x", pady=(10, 20), padx=30)
-
-        dim_label = ctk.CTkLabel(
-            dim_frame,
-            text="Dimensión de la matriz (N×N):",
-            font=ctk.CTkFont(size=13),
-            text_color=TEXT_PRIMARY
-        )
-        dim_label.pack(side="left", padx=(0, 10))
-
-        # ✅ NUEVO: Campo de entrada de texto en lugar de dropdown
-        self.mesh_dimension_var = ctk.StringVar(value="4")
-        dim_entry = ctk.CTkEntry(
-            dim_frame,
-            textvariable=self.mesh_dimension_var,
-            width=80,
-            height=35,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            fg_color=CARD_BG,
-            border_width=2,
-            border_color=THEME_COLOR,
-            justify="center"
-        )
-        dim_entry.pack(side="left", padx=(0, 10))
-
-        # Texto de ayuda
-        dim_help = ctk.CTkLabel(
-            dim_frame,
-            text="(min: 2, recomendado: 2-20)",
-            font=ctk.CTkFont(size=11),
-            text_color=TEXT_SECONDARY
-        )
-        dim_help.pack(side="left")
-
-        
-        # ========== SECCIÓN 2: MATRIZ ==========
-        matrix_card = self.create_section_card(scroll_frame, "🔢 Matriz Unitaria (U)")
-        
-        self.matrix_type_var = ctk.StringVar(value="random")
-        
-        matrix_options_frame = ctk.CTkFrame(matrix_card, fg_color="transparent")
-        matrix_options_frame.pack(fill="x", pady=(10, 15), padx=30)
-        
-        random_matrix_radio = ctk.CTkRadioButton(
-            matrix_options_frame,
-            text="Matriz aleatoria (generada automáticamente)",
-            variable=self.matrix_type_var,
-            value="random",
-            command=self.on_matrix_type_changed,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        random_matrix_radio.pack(anchor="w", pady=5)
-        
-        identity_matrix_radio = ctk.CTkRadioButton(
-            matrix_options_frame,
-            text="Matriz identidad",
-            variable=self.matrix_type_var,
-            value="identity",
-            command=self.on_matrix_type_changed,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        identity_matrix_radio.pack(anchor="w", pady=5)
-        
-        custom_matrix_radio = ctk.CTkRadioButton(
-            matrix_options_frame,
-            text="Matriz personalizada (ingresar manualmente)",
-            variable=self.matrix_type_var,
-            value="custom",
-            command=self.on_matrix_type_changed,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        custom_matrix_radio.pack(anchor="w", pady=5)
-        
-        # Área para matriz personalizada
-        self.matrix_input_frame = ctk.CTkFrame(matrix_card, fg_color=CARD_BG)
-        
-        matrix_help_label = ctk.CTkLabel(
-            self.matrix_input_frame,
-            text="Formato: Elementos separados por espacios, una fila por línea\nEjemplo 2×2:\n0.707 0.707\n-0.707 0.707",
-            font=ctk.CTkFont(size=11),
-            text_color=TEXT_SECONDARY,
-            justify="left"
-        )
-        matrix_help_label.pack(anchor="w", pady=(10, 5), padx=10)
-        
-        self.matrix_textbox = ctk.CTkTextbox(
-            self.matrix_input_frame,
-            height=150,
-            font=ctk.CTkFont(family="Courier", size=12),
-            fg_color=DARK_BG,
-            border_width=1,
-            border_color=TEXT_DISABLED
-        )
-        self.matrix_textbox.pack(fill="x", pady=10, padx=10)
-        
-        # ========== SECCIÓN 3: VECTOR ==========
-        vector_card = self.create_section_card(scroll_frame, "➡️  Vector de Entrada (v)")
-        
-        self.vector_type_var = ctk.StringVar(value="random")
-        
-        vector_options_frame = ctk.CTkFrame(vector_card, fg_color="transparent")
-        vector_options_frame.pack(fill="x", pady=(10, 15), padx=30)
-        
-        random_vector_radio = ctk.CTkRadioButton(
-            vector_options_frame,
-            text="Vector aleatorio normalizado",
-            variable=self.vector_type_var,
-            value="random",
-            command=self.on_vector_type_changed,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        random_vector_radio.pack(anchor="w", pady=5)
-        
-        custom_vector_radio = ctk.CTkRadioButton(
-            vector_options_frame,
-            text="Vector personalizado",
-            variable=self.vector_type_var,
-            value="custom",
-            command=self.on_vector_type_changed,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        custom_vector_radio.pack(anchor="w", pady=5)
-        
-        # Campo para vector personalizado
-        self.vector_input_frame = ctk.CTkFrame(vector_card, fg_color=CARD_BG)
-        
-        vector_help_label = ctk.CTkLabel(
-            self.vector_input_frame,
-            text="Formato: Elementos separados por espacios o comas\nEjemplo: 1 2 -3 4",
-            font=ctk.CTkFont(size=11),
-            text_color=TEXT_SECONDARY,
-            justify="left"
-        )
-        vector_help_label.pack(anchor="w", pady=(10, 5), padx=10)
-        
-        self.vector_entry = ctk.CTkEntry(
-            self.vector_input_frame,
-            height=40,
-            font=ctk.CTkFont(family="Courier", size=13),
-            fg_color=DARK_BG,
-            border_width=1,
-            border_color=TEXT_DISABLED
-        )
-        self.vector_entry.pack(fill="x", pady=10, padx=10)
-        
-        # ========== SECCIÓN 4: OPCIONES ==========
-        options_card = self.create_section_card(scroll_frame, "⚙️  Opciones de Simulación")
-        
-        options_frame = ctk.CTkFrame(options_card, fg_color="transparent")
-        options_frame.pack(fill="x", pady=(10, 20), padx=30)
-        
-        self.visualize_mesh_var = ctk.BooleanVar(value=True)
-        visualize_checkbox = ctk.CTkCheckBox(
-            options_frame,
-            text="Visualizar diagrama del mesh",
-            variable=self.visualize_mesh_var,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        visualize_checkbox.pack(anchor="w", pady=5)
-        
-        self.normalize_vector_var = ctk.BooleanVar(value=True)
-        normalize_checkbox = ctk.CTkCheckBox(
-            options_frame,
-            text="Normalizar vector de entrada",
-            variable=self.normalize_vector_var,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        normalize_checkbox.pack(anchor="w", pady=5)
-        
-        self.show_interconnect_var = ctk.BooleanVar(value=True)
-        show_ic_checkbox = ctk.CTkCheckBox(
-            options_frame,
-            text="Mostrar ventana de INTERCONNECT (ver simulación en tiempo real)",
-            variable=self.show_interconnect_var,
-            font=ctk.CTkFont(size=13),
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        show_ic_checkbox.pack(anchor="w", pady=5)
-
-        # ========== BOTONES ==========
-        button_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-        button_frame.pack(fill="x", pady=(20, 0))
-        
-        run_button = ctk.CTkButton(
-            button_frame,
-            text="▶  Ejecutar Simulación MZI Mesh",
-            font=ctk.CTkFont(size=16, weight="bold"),
-            height=50,
-            command=self.run_mzi_mesh_simulation,
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER
-        )
-        run_button.pack(side="left", padx=(0, 10), expand=True, fill="x")
-        
-        cancel_button = ctk.CTkButton(
-            button_frame,
-            text="Cancelar",
-            font=ctk.CTkFont(size=16),
-            height=50,
-            command=lambda: self.navigate_to("home"),
-            fg_color=CARD_BG,
-            hover_color=SIDEBAR_BG,
-            border_width=2,
-            border_color=TEXT_DISABLED
-        )
-        cancel_button.pack(side="left", expand=True, fill="x")
-
-    def on_matrix_type_changed(self):
-        """Callback cuando cambia el tipo de matriz"""
-        if self.matrix_type_var.get() == "custom":
-            self.matrix_input_frame.pack(fill="x", pady=(0, 20), padx=30)
-        else:
-            self.matrix_input_frame.pack_forget()
-
-    def on_vector_type_changed(self):
-        """Callback cuando cambia el tipo de vector"""
-        if self.vector_type_var.get() == "custom":
-            self.vector_input_frame.pack(fill="x", pady=(0, 20), padx=30)
-        else:
-            self.vector_input_frame.pack_forget()
-
-    def run_mzi_mesh_simulation(self):
-        """Ejecutar la simulación de MZI Mesh"""
-        import numpy as np
-        from scipy.stats import unitary_group
-        
-        try:
-            # ✅ VALIDACIÓN MEJORADA: Obtener y validar dimensión
-            dim_text = self.mesh_dimension_var.get().strip()
-            
-            # Verificar que sea un número
-            try:
-                dim = int(dim_text)
-            except ValueError:
-                self.show_error_dialog(
-                    "Error de Dimensión", 
-                    f"'{dim_text}' no es un número válido.\n\nPor favor ingresa un número entero."
-                )
-                return
-            
-            # Validar rango
-            if dim < 2:
-                self.show_error_dialog(
-                    "Error de Dimensión", 
-                    f"La dimensión debe ser al menos 2.\n\nDimensión ingresada: {dim}"
-                )
-                return
-            
-            if dim > 50:
-                # Advertencia para dimensiones grandes
-                from tkinter import messagebox
-                confirm = messagebox.askyesno(
-                    "Dimensión Grande",
-                    f"Has ingresado una dimensión de {dim}×{dim}.\n\n"
-                    f"Esto puede:\n"
-                    f"• Requerir mucho tiempo de simulación\n"
-                    f"• Consumir mucha memoria\n"
-                    f"• Hacer que INTERCONNECT se vuelva lento\n\n"
-                    f"¿Deseas continuar de todas formas?",
-                    icon='warning'
-                )
-                if not confirm:
-                    return
-            
-            print(f"✓ Dimensión validada: {dim}×{dim}")
-            
-            # Generar o leer matriz
-            matrix_type = self.matrix_type_var.get()
-            
-
-            if matrix_type == "random":
-                unitary_matrix = unitary_group.rvs(dim)
-                print(f"✓ Matriz aleatoria {dim}×{dim} generada")
-            elif matrix_type == "identity":
-                unitary_matrix = np.identity(dim)
-                print(f"✓ Matriz identidad {dim}×{dim} creada")
-            else:  # custom
-                matrix_text = self.matrix_textbox.get("1.0", "end-1c")
-                if not matrix_text.strip():
-                    self.show_error_dialog("Error", "Por favor ingresa una matriz válida")
-                    return
-                
-                try:
-                    rows = [line.strip() for line in matrix_text.split('\n') if line.strip()]
-                    unitary_matrix = np.array([[float(x) for x in row.split()] for row in rows])
-                    
-                    if unitary_matrix.shape != (dim, dim):
-                        self.show_error_dialog("Error", f"La matriz debe ser {dim}×{dim}")
-                        return
-                    
-                    print(f"✓ Matriz personalizada {dim}×{dim} cargada")
-                except Exception as e:
-                    self.show_error_dialog("Error", f"Formato de matriz inválido: {str(e)}")
-                    return
-            
-            # Generar o leer vector
-            vector_type = self.vector_type_var.get()
-            if vector_type == "random":
-                input_vector = np.random.randn(dim)
-                if self.normalize_vector_var.get():
-                    input_vector = input_vector / np.linalg.norm(input_vector)
-                print(f"✓ Vector aleatorio de dimensión {dim} generado")
-            else:  # custom
-                vector_text = self.vector_entry.get().strip()
-                if not vector_text:
-                    self.show_error_dialog("Error", "Por favor ingresa un vector válido")
-                    return
-                
-                try:
-                    vector_text = vector_text.replace(',', ' ')
-                    input_vector = np.array([float(x) for x in vector_text.split()])
-                    
-                    if len(input_vector) != dim:
-                        self.show_error_dialog("Error", f"El vector debe tener {dim} elementos")
-                        return
-                    
-                    if self.normalize_vector_var.get():
-                        input_vector = input_vector / np.linalg.norm(input_vector)
-                    
-                    print(f"✓ Vector personalizado de dimensión {dim} cargado")
-                except Exception as e:
-                    self.show_error_dialog("Error", f"Formato de vector inválido: {str(e)}")
-                    return
-            
-            # Preparar parámetros
-            params = {
-                'unitary_matrix': unitary_matrix,
-                'input_vector': input_vector,
-                'visualize': self.visualize_mesh_var.get(),
-                'show_interconnect': self.show_interconnect_var.get(), 
-                'platform': self.selected_platform
-            }
-            
-            print("\n" + "="*50)
-            print("🔷 EJECUTANDO SIMULACIÓN MZI MESH")
-            print("="*50)
-            print(f"Plataforma: {self.selected_platform.upper()}")
-            print(f"Dimensión: {dim}×{dim}")
-            print(f"Matriz: {matrix_type}")
-            print(f"Vector: {vector_type}")
-            print(f"Visualizar: {params['visualize']}")
-            print("="*50 + "\n")
-            
-            # Ejecutar simulación
-            from GUI.mzi_mesh_simulation_window import MZIMeshSimulationWindow
-            MZIMeshSimulationWindow(
-                parent=self.root,
-                api=self.api,
-                params=params,
-                callback=self.on_mzi_mesh_complete
-            )
-            
-        except Exception as e:
-            self.show_error_dialog("Error", f"Error al configurar simulación: {str(e)}")
-            import traceback
-            traceback.print_exc()
-
-    def on_mzi_mesh_complete(self, success, results=None, error=None):
-        """Callback cuando termina la simulación MZI Mesh"""
-        if success:
-            print("\n✓ Simulación MZI Mesh completada exitosamente")
-            print("Resultados:", results)
-        else:
-            print(f"\n✗ Simulación MZI Mesh falló: {error}")
-
-    def show_error_dialog(self, title, message):
-        """Mostrar diálogo de error"""
-        dialog = ctk.CTkToplevel(self.root)
-        dialog.title(title)
-        dialog.geometry("450x180")
-        dialog.transient(self.root)
-        dialog.grab_set()
-        dialog.configure(fg_color=DARK_BG)
-        
-        # Centrar
-        dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (180 // 2)
-        dialog.geometry(f"450x180+{x}+{y}")
-        
-        label = ctk.CTkLabel(
-            dialog,
-            text=message,
-            font=ctk.CTkFont(size=14),
-            text_color=TEXT_PRIMARY,
-            wraplength=400
-        )
-        label.pack(pady=30, padx=20)
-        
-        button = ctk.CTkButton(
-            dialog,
-            text="OK",
-            command=dialog.destroy,
-            fg_color=THEME_COLOR,
-            hover_color=THEME_COLOR_HOVER,
-            width=100
-        )
-        button.pack(pady=10)
-
     def run(self):
         """Ejecutar la aplicación"""
         self.root.mainloop()

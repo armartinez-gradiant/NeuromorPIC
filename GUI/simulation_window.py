@@ -1,6 +1,5 @@
 """
 Ventana de ejecución y progreso de simulación
-CORREGIDO: Thread-safe para Tkinter
 """
 
 import customtkinter as ctk
@@ -124,33 +123,15 @@ class SimulationWindow:
         self.close_button.pack(pady=10)
         
     def log(self, message):
-        """
-        Añadir mensaje al log (THREAD-SAFE)
-        Programa la actualización en el thread principal de Tkinter
-        """
-        def _log():
-            try:
-                self.log_text.insert("end", message + "\n")
-                self.log_text.see("end")
-            except Exception as e:
-                print(f"Error en log: {e}")
-        
-        # Programar la actualización en el thread principal
-        self.window.after(0, _log)
+        """Añadir mensaje al log"""
+        self.log_text.insert("end", message + "\n")
+        self.log_text.see("end")
+        self.window.update()
         
     def update_status(self, status):
-        """
-        Actualizar estado actual (THREAD-SAFE)
-        Programa la actualización en el thread principal de Tkinter
-        """
-        def _update():
-            try:
-                self.status_label.configure(text=status)
-            except Exception as e:
-                print(f"Error en update_status: {e}")
-        
-        # Programar la actualización en el thread principal
-        self.window.after(0, _update)
+        """Actualizar estado actual"""
+        self.status_label.configure(text=status)
+        self.window.update()
         
     def start_simulation(self):
         """Iniciar simulación en thread separado"""
@@ -166,7 +147,8 @@ class SimulationWindow:
         self.log("\n" + "="*70)
         
         # Ejecutar en thread separado para no bloquear UI
-        thread = threading.Thread(target=self.run_simulation, daemon=True)
+        thread = threading.Thread(target=self.run_simulation)
+        thread.daemon = True
         thread.start()
         
     def run_simulation(self):
@@ -196,22 +178,15 @@ class SimulationWindow:
             self.log("="*70)
             
             self.update_status("Simulación completada exitosamente")
+            self.progress_bar.stop()
+            self.progress_bar.set(1.0)
             
-            # Detener y completar barra de progreso (THREAD-SAFE)
-            def _complete_progress():
-                try:
-                    self.progress_bar.stop()
-                    self.progress_bar.set(1.0)
-                    self.is_running = False
-                    self.close_button.configure(
-                        state="normal",
-                        fg_color=THEME_COLOR,
-                        hover_color=THEME_COLOR_HOVER
-                    )
-                except Exception as e:
-                    print(f"Error completando progreso: {e}")
-            
-            self.window.after(0, _complete_progress)
+            self.is_running = False
+            self.close_button.configure(
+                state="normal",
+                fg_color=THEME_COLOR,
+                hover_color=THEME_COLOR_HOVER
+            )
             
             # Llamar callback si existe
             if self.callback:
@@ -229,26 +204,20 @@ class SimulationWindow:
             self.log(f"\nError: {error_msg}\n")
             
             self.update_status("Error durante la simulación")
+            self.progress_bar.stop()
+            self.progress_bar.set(0)
             
-            # Detener barra de progreso y habilitar botón (THREAD-SAFE)
-            def _handle_error():
-                try:
-                    self.progress_bar.stop()
-                    self.progress_bar.set(0)
-                    self.is_running = False
-                    self.close_button.configure(
-                        state="normal",
-                        fg_color="darkred",
-                        hover_color="red"
-                    )
-                    messagebox.showerror(
-                        "Error de Simulación",
-                        f"Ocurrió un error durante la simulación:\n\n{error_msg}"
-                    )
-                except Exception as ex:
-                    print(f"Error manejando error: {ex}")
+            self.is_running = False
+            self.close_button.configure(
+                state="normal",
+                fg_color="darkred",
+                hover_color="red"
+            )
             
-            self.window.after(0, _handle_error)
+            messagebox.showerror(
+                "Error de Simulación",
+                f"Ocurrió un error durante la simulación:\n\n{error_msg}"
+            )
             
             # Llamar callback con error
             if self.callback:
