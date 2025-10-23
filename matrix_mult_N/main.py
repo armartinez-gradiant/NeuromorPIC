@@ -160,7 +160,7 @@ def general_MZI_multiplication(u, v, ic, graph=False):
         graph: Si visualizar descomposición
     """
     from . import mathfs  # ← CORREGIDO
-    from scipy.linalg import svd, diagsvg
+    from scipy.linalg import svd
     
     create_circuit = True
     dimU, dimV = np.shape(u)

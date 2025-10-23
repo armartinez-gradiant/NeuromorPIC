@@ -330,7 +330,7 @@ class LumericalGUI:
                 text=text,
                 command=None,
                 fg_color="transparent",
-                hover_color=SIDEBAR_BG,  # ← CAMBIO AQUÍ
+                hover_color=SIDEBAR_BG,
                 text_color=text_color,
                 anchor="w",
                 height=40,
@@ -598,7 +598,6 @@ class LumericalGUI:
     def show_simulate(self):
         """Mostrar pantalla de configuración de simulación"""
         self.clear_content()
-        
         # Importar el componente de formulario
         from GUI.simulation_config_form import SimulationConfigForm
         
@@ -755,7 +754,7 @@ class LumericalGUI:
         matrix_type_label.pack(fill="x", pady=(10, 10), padx=30)
         
         # Radio buttons para tipo de matriz
-        self.matrix_type_var = ctk.StringVar(value="random")
+        self.matrix_type_var = ctk.StringVar(value="random_unitary")  # ✅ CORREGIDO
         
         matrix_options_frame = ctk.CTkFrame(matrix_card, fg_color="transparent")
         matrix_options_frame.pack(fill="x", padx=30, pady=(0, 15))
@@ -764,7 +763,7 @@ class LumericalGUI:
             matrix_options_frame,
             text="Matriz Unitaria Aleatoria",
             variable=self.matrix_type_var,
-            value="random",
+            value="random_unitary",  # ✅ CORREGIDO
             font=ctk.CTkFont(size=13),
             text_color=TEXT_PRIMARY,
             fg_color=THEME_COLOR,
@@ -824,13 +823,13 @@ class LumericalGUI:
         )
         matrix_input_label.pack(fill="x", pady=(10, 5), padx=15)
         
-        self.matrix_entry = ctk.CTkTextbox(
+        self.matrix_input_text = ctk.CTkTextbox(  # ✅ CORREGIDO (era matrix_entry)
             self.matrix_input_frame,
             height=100,
             font=ctk.CTkFont(family="Courier", size=12),
             fg_color=CARD_BG
         )
-        self.matrix_entry.pack(fill="x", padx=15, pady=(0, 10))
+        self.matrix_input_text.pack(fill="x", padx=15, pady=(0, 10))
         
         # ========== SECCIÓN 3: VECTOR DE ENTRADA ==========
         vector_card = self.create_section_card(scroll_frame, "📊 Vector de Entrada (v)")
@@ -845,7 +844,7 @@ class LumericalGUI:
         vector_type_label.pack(fill="x", pady=(10, 10), padx=30)
         
         # Radio buttons para tipo de vector
-        self.vector_type_var = ctk.StringVar(value="random")
+        self.vector_type_var = ctk.StringVar(value="random_normalized")  # ✅ CORREGIDO
         
         vector_options_frame = ctk.CTkFrame(vector_card, fg_color="transparent")
         vector_options_frame.pack(fill="x", padx=30, pady=(0, 15))
@@ -854,7 +853,7 @@ class LumericalGUI:
             vector_options_frame,
             text="Vector Aleatorio Normalizado",
             variable=self.vector_type_var,
-            value="random",
+            value="random_normalized",  # ✅ CORREGIDO
             font=ctk.CTkFont(size=13),
             text_color=TEXT_PRIMARY,
             fg_color=THEME_COLOR,
@@ -862,6 +861,20 @@ class LumericalGUI:
             command=self.on_vector_type_changed
         )
         random_vector_radio.pack(anchor="w", pady=5)
+        
+        # ✅ AÑADIDO: Radio button para vector de unos
+        ones_vector_radio = ctk.CTkRadioButton(
+            vector_options_frame,
+            text="Vector de Unos Normalizado",
+            variable=self.vector_type_var,
+            value="ones",
+            font=ctk.CTkFont(size=13),
+            text_color=TEXT_PRIMARY,
+            fg_color=THEME_COLOR,
+            hover_color=THEME_COLOR_HOVER,
+            command=self.on_vector_type_changed
+        )
+        ones_vector_radio.pack(anchor="w", pady=5)
         
         custom_vector_radio = ctk.CTkRadioButton(
             vector_options_frame,
@@ -881,20 +894,20 @@ class LumericalGUI:
         
         vector_input_label = ctk.CTkLabel(
             self.vector_input_frame,
-            text="Ingresa el vector (ejemplo: 1, 2, 3, 4):",
+            text="Ingresa el vector (ejemplo: [1, 2, 3, 4]):",
             font=ctk.CTkFont(size=12),
             text_color=TEXT_SECONDARY,
             anchor="w"
         )
         vector_input_label.pack(fill="x", pady=(10, 5), padx=15)
         
-        self.vector_entry = ctk.CTkEntry(
+        self.vector_input_text = ctk.CTkEntry(  # ✅ CORREGIDO (era vector_entry)
             self.vector_input_frame,
             height=35,
             font=ctk.CTkFont(size=13),
             fg_color=CARD_BG
         )
-        self.vector_entry.pack(fill="x", padx=15, pady=(0, 10))
+        self.vector_input_text.pack(fill="x", padx=15, pady=(0, 10))
         
         # Checkbox para normalizar
         self.normalize_vector_var = ctk.BooleanVar(value=True)
@@ -1014,7 +1027,6 @@ class LumericalGUI:
             matrix_type = self.matrix_type_var.get()
             
             if matrix_type == "random_unitary":
-                from scipy.stats import unitary_group
                 unitary_matrix = unitary_group.rvs(dim)
                 print(f"✓ Matriz unitaria aleatoria generada ({dim}×{dim})")
                 
@@ -1079,7 +1091,7 @@ class LumericalGUI:
                 
             elif vector_type == "custom":
                 # Parsear vector custom
-                vector_text = self.vector_input_text.get("1.0", "end").strip()
+                vector_text = self.vector_input_text.get().strip()
                 
                 if not vector_text:
                     self.show_error_dialog("Error", "Por favor ingresa un vector válido.")
@@ -1212,6 +1224,44 @@ class LumericalGUI:
             width=100
         )
         button.pack(pady=10)
+
+    def show_info_dialog(self, title, message):
+        """Mostrar diálogo de información"""
+        dialog = ctk.CTkToplevel(self.root)
+        dialog.title(title)
+        dialog.geometry("450x200")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.configure(fg_color=DARK_BG)
+        
+        # Centrar
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (200 // 2)
+        dialog.geometry(f"450x200+{x}+{y}")
+        
+        label = ctk.CTkLabel(
+            dialog,
+            text=message,
+            font=ctk.CTkFont(size=14),
+            text_color=TEXT_PRIMARY,
+            wraplength=400
+        )
+        label.pack(pady=30, padx=20)
+        
+        button = ctk.CTkButton(
+            dialog,
+            text="OK",
+            command=dialog.destroy,
+            fg_color=THEME_COLOR,
+            hover_color=THEME_COLOR_HOVER,
+            width=100
+        )
+        button.pack(pady=10)
+
+    def show_success_dialog(self, title, message):
+        """Mostrar diálogo de éxito"""
+        self.show_info_dialog(title, message)
 
     def run(self):
         """Ejecutar la aplicación"""

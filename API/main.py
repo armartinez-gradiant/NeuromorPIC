@@ -16,7 +16,7 @@ sys.path.insert(0, project_root)
 
 # Importar módulos del proyecto
 from Lumerical import interface
-from matrix_mult_N import mathfs
+from matrix_mult_N import mathfs  # ← CORREGIDO
 
 # Importar el nuevo sistema de multiplicación matricial
 from matrix_mult_N.main import (
@@ -48,6 +48,7 @@ class API:
         self.platform = "sipho"  # Plataforma por defecto
         self.cache = {}
         self.cache_file = "API/simulation_cache.json"
+        self.load_cache()
         
     def set_platform(self, platform):
         """
@@ -61,146 +62,115 @@ class API:
             raise ValueError(f"Plataforma '{platform}' no válida. Opciones: {valid_platforms}")
         
         self.platform = platform.lower()
-        print(f"✓ Plataforma establecida: {self.platform.upper()}")
+        print(f"✓ Plataforma configurada: {self.platform.upper()}")
+    
+    def get_platform(self):
+        """Obtener plataforma actual"""
+        return self.platform
     
     def load_cache(self):
-        """Carga el caché de simulaciones anteriores"""
+        """Cargar caché de simulaciones previas"""
         if os.path.exists(self.cache_file):
             try:
                 with open(self.cache_file, 'r') as f:
                     self.cache = json.load(f)
-                print(f"✓ Caché cargado: {len(self.cache)} entradas")
+                print(f"✓ Caché cargada: {len(self.cache)} entradas")
             except Exception as e:
-                print(f"⚠ Error cargando caché: {e}")
+                print(f"⚠️ Error cargando caché: {e}")
                 self.cache = {}
         else:
             self.cache = {}
     
     def save_cache(self):
-        """Guarda el caché de simulaciones"""
+        """Guardar caché de simulaciones"""
         try:
             os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
             with open(self.cache_file, 'w') as f:
                 json.dump(self.cache, f, indent=2)
         except Exception as e:
-            print(f"⚠ Error guardando caché: {e}")
+            print(f"⚠️ Error guardando caché: {e}")
     
-    def get_param_suggestions(self):
+    def get_total_simulations(self):
         """
-        Retorna valores sugeridos de parámetros según plataforma
+        Obtiene el número total de simulaciones en caché
         
         Returns:
-            dict: Diccionario con parámetros por defecto
+            int: Número de simulaciones guardadas
         """
+        return len(self.cache)
+
+    def run(self, params):
+        """
+        LEGACY: Ejecuta simulación según parámetros (compatibilidad con sistema antiguo)
+        
+        Args:
+            params: Diccionario con parámetros de simulación
+        """
+        sim_type = params.get('sim_type', 'scatter')
+        
+        if sim_type == 'scatter':
+            # Simulación scatter (FDTD)
+            min_w = float(params.get('min_w', 400e-9))
+            max_w = float(params.get('max_w', 600e-9))
+            interval_w = float(params.get('interval_w', 50e-9))
+            
+            print(f"\n🔬 Ejecutando simulación SCATTER")
+            print(f"   Ancho: {min_w*1e9:.1f} - {max_w*1e9:.1f} nm")
+            print(f"   Intervalo: {interval_w*1e9:.1f} nm")
+            
+            result_path = self.run_scatter_simulation(min_w, max_w, interval_w)
+            print(f"✓ Scatter completado: {result_path}")
+            
+        elif sim_type == 'heat':
+            # Simulación heat (DEVICE)
+            heater_sim_type = params.get('heater_sim_type', 'sweep')
+            
+            if heater_sim_type == 'sweep':
+                min_v = float(params.get('min_v', 0))
+                max_v = float(params.get('max_v', 5))
+                interval_v = float(params.get('interval_v', 0.5))
+                
+                print(f"\n🔥 Ejecutando simulación HEAT (sweep)")
+                print(f"   Voltaje: {min_v} - {max_v} V")
+                print(f"   Intervalo: {interval_v} V")
+                
+                result_path = self.run_heat_simulation(min_v, max_v, interval_v)
+                print(f"✓ Heat completado: {result_path}")
+                
+            elif heater_sim_type == 'constant':
+                constant_v = float(params.get('constant_v', 4.5))
+                
+                print(f"\n🔥 Ejecutando simulación HEAT (constante)")
+                print(f"   Voltaje: {constant_v} V")
+                
+                result_path = self.run_heat_simulation(constant_v, constant_v, 1)
+                print(f"✓ Heat completado: {result_path}")
+        
+        print("\n✓ Todas las simulaciones completadas\n")
+
+    def get_param_suggestions(self):
+        """Obtener sugerencias de parámetros para la plataforma actual"""
         defaults = {
             'sipho': {
-                'min_v': 0,
-                'max_v': 5,
-                'interval_v': 0.5,
-                'min_w': 400e-9,
-                'max_w': 600e-9,
-                'interval_w': 50e-9,
+                'start_wavelength': 1.5e-6,
+                'end_wavelength': 1.6e-6,
+                'time_window': 5.12e-9,
+                'n_samples': 15360
             },
             'sin': {
-                'min_v': 0,
-                'max_v': 5,
-                'interval_v': 0.5,
-                'min_w': 700e-9,
-                'max_w': 900e-9,
-                'interval_w': 50e-9,
+                'start_wavelength': 1.5e-6,
+                'end_wavelength': 1.6e-6,
+                'time_window': 5.12e-9,
+                'n_samples': 15360
             },
             'ant': {
-                'min_v': 0,
-                'max_v': 3,
-                'interval_v': 0.3,
-                'min_w': 450e-9,
-                'max_w': 550e-9,
-                'interval_w': 25e-9,
+                'start_wavelength': 1.5e-6,
+                'end_wavelength': 1.6e-6,
+                'time_window': 5.12e-9,
+                'n_samples': 15360
             }
         }
-        
         return defaults.get(self.platform, defaults['sipho'])
-    
-    # ========== MÉTODOS LEGACY (mantener por compatibilidad temporal) ==========
-    
-    def run_heat_simulation(self, min_v, max_v, interval_v):
-        """
-        LEGACY: Ejecuta simulación DEVICE heat
-        
-        Args:
-            min_v: Voltaje mínimo
-            max_v: Voltaje máximo
-            interval_v: Intervalo de voltaje
-            
-        Returns:
-            str: Ruta al archivo .mat generado
-        """
-        inputs = {
-            'platform': self.platform,
-            'min_v': min_v,
-            'max_v': max_v,
-            'interval_v': interval_v
-        }
-        
-        result_path = interface.heat(inputs)
-        
-        # Guardar en caché
-        cache_key = f"heat_{self.platform}_{min_v}_{max_v}_{interval_v}"
-        self.cache[cache_key] = result_path
-        self.save_cache()
-        
-        return result_path
-    
-    def run_scatter_simulation(self, min_w, max_w, interval_w):
-        """
-        LEGACY: Ejecuta simulación FDTD scatter
-        
-        Args:
-            min_w: Ancho mínimo
-            max_w: Ancho máximo
-            interval_w: Intervalo de ancho
-            
-        Returns:
-            str: Ruta al archivo .mat generado
-        """
-        inputs = {
-            'platform': self.platform,
-            'min_w': min_w,
-            'max_w': max_w,
-            'interval_w': interval_w
-        }
-        
-        result_path = interface.scatter(inputs)
-        
-        # Guardar en caché
-        cache_key = f"scatter_{self.platform}_{min_w}_{max_w}_{interval_w}"
-        self.cache[cache_key] = result_path
-        self.save_cache()
-        
-        return result_path
-    
-    def run_weight_bank_simulation(self, weight_matrix, sim_type='scatter', **kwargs):
-        """
-        LEGACY: Ejecuta simulación de weight bank
-        
-        Args:
-            weight_matrix: Matriz de pesos
-            sim_type: Tipo de simulación ('scatter' o 'heat')
-            **kwargs: Parámetros adicionales
-            
-        Returns:
-            dict: Resultados de la simulación
-        """
-        inputs = {
-            'platform': self.platform,
-            'weight_matrix': weight_matrix,
-            'sim_type': sim_type,
-            **kwargs
-        }
-        
-        results = interface.weight_bank(inputs)
-        
-        return results
     
     # ========== NUEVOS MÉTODOS (matrix_mult_N) ==========
     
@@ -224,7 +194,7 @@ class API:
         print("="*60)
         
         # Validaciones
-        if not mathfs.is_unitary(unitary_matrix):
+        if not is_unitary(unitary_matrix):
             raise ValueError(
                 "La matriz no es unitaria. Use run_general_matrix_multiplication() "
                 "para matrices no unitarias."
@@ -357,7 +327,7 @@ class API:
         ic = lumapi.INTERCONNECT(filename=icp_path, hide=not show_interconnect)
         
         try:
-            # Ejecutar multiplicación con SVD
+            # Ejecutar multiplicación general
             print("⚙️  Construyendo circuito con descomposición SVD...")
             v_mesh = general_MZI_multiplication(
                 u=matrix,
@@ -389,7 +359,7 @@ class API:
                 'avg_error': avg_error,
                 'max_error': max_error,
                 'platform': self.platform,
-                'dimension': f"{dimU}×{dimV}"
+                'dimension': (dimU, dimV)
             }
             
             return results
@@ -399,117 +369,19 @@ class API:
                 ic.close()
                 print("✓ INTERCONNECT cerrado")
     
-    def run_optical_neural_network(self, input_vector, weight_matrices,
-                                   show_interconnect=False):
-        """
-        Ejecuta red neuronal óptica de múltiples capas
-        
-        Args:
-            input_vector: Vector de entrada
-            weight_matrices: Lista de matrices (pesos de cada capa)
-            show_interconnect: Si mantener INTERCONNECT abierto
-            
-        Returns:
-            dict: Resultados con salidas por capa y métricas
-        """
-        print("\n" + "="*60)
-        print("🧠 EJECUTANDO RED NEURONAL ÓPTICA")
-        print("="*60)
-        
-        num_layers = len(weight_matrices)
-        print(f"📊 Número de capas: {num_layers}")
-        print(f"📊 Dimensiones:")
-        for i, W in enumerate(weight_matrices):
-            print(f"   Capa {i+1}: {W.shape[0]}×{W.shape[1]}")
-        print(f"🎯 Plataforma: {self.platform.upper()}")
-        
-        # Validar dimensiones entre capas
-        for i in range(len(weight_matrices) - 1):
-            if weight_matrices[i].shape[0] != weight_matrices[i+1].shape[1]:
-                raise ValueError(
-                    f"Dimensiones incompatibles entre capas {i+1} y {i+2}: "
-                    f"{weight_matrices[i].shape} y {weight_matrices[i+1].shape}"
-                )
-        
-        # Validar entrada con primera capa
-        validate_matrix_vector(weight_matrices[0], input_vector)
-        
-        # Crear archivo .icp grande
-        max_dim = max([max(W.shape) for W in weight_matrices])
-        icp_folder = Path("matrix_mult_N/circuits")
-        icp_folder.mkdir(parents=True, exist_ok=True)
-        
-        icp_path, created = create_matrix_icp(
-            m=max_dim * 2,  # Multiplicador para tener espacio
-            n=max_dim * 2,
-            folder=icp_folder,
-            hide=not show_interconnect
-        )
-        
-        if created:
-            print(f"✓ Archivo creado: {icp_path}")
-        else:
-            print(f"✓ Usando archivo existente: {icp_path}")
-        
-        # Abrir INTERCONNECT
-        print("🔧 Inicializando INTERCONNECT...")
-        from lumerical_path_detector import auto_detect_and_load_lumapi
-        lumapi = auto_detect_and_load_lumapi()
-        
-        ic = lumapi.INTERCONNECT(filename=icp_path, hide=not show_interconnect)
-        
-        try:
-            # Ejecutar red neuronal
-            print("⚙️  Construyendo red neuronal óptica completa...")
-            optical_neural_network(
-                v=input_vector,
-                m=weight_matrices,
-                ic=ic,
-                inference=False
-            )
-            
-            print("\n" + "="*60)
-            print("✓ RED NEURONAL CONSTRUIDA Y SIMULADA")
-            print("="*60 + "\n")
-            
-            # Extraer resultados (por ahora simplificado)
-            results = {
-                'success': True,
-                'num_layers': num_layers,
-                'platform': self.platform,
-                'message': 'Red neuronal óptica simulada exitosamente'
-            }
-            
-            return results
-            
-        finally:
-            if not show_interconnect:
-                ic.close()
-                print("✓ INTERCONNECT cerrado")
+    # ========== MÉTODOS LEGACY (weight_bank) ==========
     
-    # ========== MÉTODO DE COMPATIBILIDAD ==========
-    
-    def run_mzi_mesh(self, unitary_matrix, input_vector, 
-                     visualize=False, show_interconnect=False):
+    def run_weight_bank_simulation(self, weight_matrix, sim_type='scatter', **kwargs):
         """
-        COMPATIBILIDAD: Redirige al nuevo método run_matrix_multiplication
-        Este método se mantiene para compatibilidad con código antiguo
-        
-        Args:
-            unitary_matrix: Matriz unitaria
-            input_vector: Vector de entrada
-            visualize: Si visualizar
-            show_interconnect: Si mostrar INTERCONNECT
-            
-        Returns:
-            dict: Resultados de la simulación
+        LEGACY: Ejecuta simulación de weight bank
         """
-        print("⚠️  AVISO: run_mzi_mesh() está deprecado.")
-        print("    Use run_matrix_multiplication() en su lugar.\n")
+        inputs = {
+            'platform': self.platform,
+            'weight_matrix': weight_matrix,
+            'sim_type': sim_type,
+            **kwargs
+        }
         
-        return self.run_matrix_multiplication(
-            unitary_matrix=unitary_matrix,
-            input_vector=input_vector,
-            visualize=visualize,
-            show_interconnect=show_interconnect
-        )
+        results = interface.weight_bank(inputs)
+        
+        return results

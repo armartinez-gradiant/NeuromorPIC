@@ -1,5 +1,5 @@
 import main # type: ignore
-from . import mathfs  # type: ignore
+from . import mathfs # type: ignore
 
 import numpy as np
 from scipy.stats import ortho_group

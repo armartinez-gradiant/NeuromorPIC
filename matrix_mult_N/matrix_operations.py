@@ -1,117 +1,118 @@
 """
-Operaciones matriciales y funciones matemáticas para multiplicación óptica
-Incluye descomposición SVD y conversiones
+Operaciones matriciales para fotónica
+Incluye validaciones, descomposición SVD, etc.
 """
 
 import numpy as np
-from scipy.linalg import svd, diagsvd
-import interferometer as itf
-import sys
-import os
-from matrix_mult_N from . import mathfs
+from typing import Tuple, Optional
+from scipy.linalg import svd
+from . import mathfs
 
 
-def bs_list_to_vectors(I):
+def theoretical_mzi_mult(u: np.ndarray, v: np.ndarray) -> np.ndarray:
     """
-    Convierte la lista de beam splitters de interferometer a vectores numpy
-    
-    Args:
-        I: Objeto de interferómetro con BS_list
-    
-    Returns:
-        tuple: (theta, phi, mode1, mode2) como arrays numpy
-    """
-    theta = np.array([bs.theta for bs in I.BS_list], dtype=float)
-    phi = np.array([bs.phi for bs in I.BS_list], dtype=float)
-    mode1 = np.array([bs.mode1 for bs in I.BS_list], dtype=float)
-    mode2 = np.array([bs.mode2 for bs in I.BS_list], dtype=float)
-    return theta, phi, mode1, mode2
-
-
-def theoretical_mzi_mult(u, v):
-    """
-    Multiplica el vector por cada MZI teóricamente
-    Usado principalmente para testing
+    Calcula la multiplicación teórica U @ v
     
     Args:
         u: Matriz unitaria
         v: Vector de entrada
-    
+        
     Returns:
-        np.ndarray: Vector resultante después de multiplicación teórica
+        Vector resultado de U @ v
     """
-    I = itf.square_decomposition(u)
-    theta, phi, mode1, mode2 = bs_list_to_vectors(I)
-    dim = np.shape(v)[0]
-    nmzis = dim * (dim - 1) // 2
-
-    for i in range(nmzis):
-        v = mathfs.T_mn(theta[i], phi[i], int(mode1[i] - 1), int(mode2[i] - 1), dim) @ v
-
-    return v
+    return u @ v
 
 
-def decompose_matrix_svd(matrix):
+def decompose_matrix_svd(matrix: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Descompone una matriz usando SVD
+    Descompone una matriz usando SVD: A = U Σ V†
     
     Args:
-        matrix: Matriz a descomponer (puede ser no cuadrada o no unitaria)
-    
+        matrix: Matriz a descomponer
+        
     Returns:
-        tuple: (U, S, Vh) - Descomposición SVD
+        Tuple (U, Sigma, Vh) donde:
+            - U: Matriz unitaria (m×m)
+            - Sigma: Valores singulares (diagonal)
+            - Vh: Matriz unitaria conjugada transpuesta (n×n)
     """
-    U, S, Vh = svd(matrix)
-    return U, S, Vh
+    U, s, Vh = svd(matrix)
+    Sigma = np.diag(s)
+    
+    return U, Sigma, Vh
 
 
-def is_unitary(matrix, tolerance=1e-10):
+def is_unitary(matrix: np.ndarray, tol: float = 1e-10) -> bool:
     """
-    Verifica si una matriz es unitaria
+    Verifica si una matriz es unitaria (U†U = I)
     
     Args:
         matrix: Matriz a verificar
-        tolerance: Tolerancia para la comparación
-    
+        tol: Tolerancia para la comparación
+        
     Returns:
-        bool: True si la matriz es unitaria
+        True si la matriz es unitaria, False en caso contrario
     """
-    return mathfs.is_unitary(matrix, tol=tolerance)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        return False
+    
+    n = matrix.shape[0]
+    identity = np.eye(n)
+    
+    product = matrix.conj().T @ matrix
+    
+    return np.allclose(product, identity, atol=tol)
 
 
-def validate_matrix_vector(matrix, vector):
+def validate_matrix_vector(matrix: np.ndarray, vector: np.ndarray) -> None:
     """
-    Valida que la matriz y el vector sean compatibles
+    Valida que las dimensiones de matriz y vector sean compatibles
     
     Args:
-        matrix: Matriz de multiplicación
+        matrix: Matriz de transformación
         vector: Vector de entrada
-    
+        
     Raises:
         ValueError: Si las dimensiones no son compatibles
     """
-    if len(vector.shape) != 1:
-        raise ValueError(f"El vector debe ser unidimensional, tiene shape {vector.shape}")
+    if matrix.ndim != 2:
+        raise ValueError(f"La matriz debe ser 2D, recibida: {matrix.ndim}D")
     
-    matrix_cols = matrix.shape[1]
-    vector_dim = vector.shape[0]
+    if vector.ndim != 1:
+        raise ValueError(f"El vector debe ser 1D, recibido: {vector.ndim}D")
     
-    if matrix_cols != vector_dim:
+    m, n = matrix.shape
+    if n != len(vector):
         raise ValueError(
-            f"Dimensiones incompatibles: matriz {matrix.shape} "
-            f"no puede multiplicar vector de tamaño {vector_dim}"
+            f"Dimensiones incompatibles: matriz {m}×{n}, vector {len(vector)}"
         )
 
 
-def compute_theoretical_result(matrix, vector):
+def compute_theoretical_result(matrix: np.ndarray, vector: np.ndarray) -> np.ndarray:
     """
     Calcula el resultado teórico de la multiplicación matriz-vector
     
     Args:
-        matrix: Matriz de multiplicación
+        matrix: Matriz de transformación
         vector: Vector de entrada
-    
+        
     Returns:
-        np.ndarray: Vector resultado teórico
+        Vector resultado de matrix @ vector
     """
+    validate_matrix_vector(matrix, vector)
     return matrix @ vector
+
+
+def bs_list_to_vectors(bs_list):
+    """
+    Convierte una lista de beamsplitters en vectores de thetas y phis
+    
+    Args:
+        bs_list: Lista de objetos beamsplitter del módulo interferometer
+        
+    Returns:
+        Tuple (thetas, phis): Vectores numpy con los ángulos theta y phi
+    """
+    thetas = np.array([bs.theta for bs in bs_list], dtype=float)
+    phis = np.array([bs.phi for bs in bs_list], dtype=float)
+    return thetas, phis
