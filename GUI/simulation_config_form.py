@@ -74,136 +74,141 @@ class SimulationConfigForm(ctk.CTkFrame):
         )
         subtitle.pack(anchor="w", pady=(5, 0))
         
-        # ========== SECCIÓN 1: TIPO DE SIMULACIÓN LÁSER ==========
-        laser_card = self.create_section_card(scroll_frame, "🔬  Tipo de Simulación Láser")
+        # ========== TIPO DE SIMULACIÓN ==========
+        sim_card = self.create_section_card(scroll_frame, "🔬 Tipo de Simulación")
         
-        radio_frame = ctk.CTkFrame(laser_card, fg_color="transparent")
-        radio_frame.pack(fill="x", padx=30, pady=(10, 15))
+        # Radio buttons para tipo de simulación
+        radio_frame = ctk.CTkFrame(sim_card, fg_color="transparent")
+        radio_frame.pack(fill="x", padx=30, pady=10)
         
-        radio_scatter = ctk.CTkRadioButton(
+        scatter_radio = ctk.CTkRadioButton(
             radio_frame,
-            text="Multi-Wavelength Scatter",
+            text="S-Parameter Scatter (barrido de longitud de onda)",
             variable=self.sim_type_var,
             value="scatter",
             command=self.on_sim_type_changed,
             font=ctk.CTkFont(size=13),
+            text_color=TEXT_PRIMARY,
             fg_color=THEME_COLOR,
             hover_color=THEME_COLOR_HOVER
         )
-        radio_scatter.pack(side="left", padx=(0, 30))
+        scatter_radio.pack(anchor="w", pady=5)
         
-        radio_single = ctk.CTkRadioButton(
+        single_radio = ctk.CTkRadioButton(
             radio_frame,
-            text="Single Laser",
+            text="Single Wavelength (longitud de onda única)",
             variable=self.sim_type_var,
-            value="single laser",
+            value="single",
             command=self.on_sim_type_changed,
             font=ctk.CTkFont(size=13),
+            text_color=TEXT_PRIMARY,
             fg_color=THEME_COLOR,
             hover_color=THEME_COLOR_HOVER
         )
-        radio_single.pack(side="left")
+        single_radio.pack(anchor="w", pady=5)
         
-        # ========== SECCIÓN 2: LONGITUD DE ONDA ==========
-        wavelength_card = self.create_section_card(scroll_frame, "📏  Parámetros de Longitud de Onda")
-        
+        # Campo de longitud de onda central
         self.wavelength_entry = self.create_input_field(
-            wavelength_card,
-            "Longitud de onda fuente (m)",
-            self.defaults.get('laser_wavelength', '1.545e-6'),
-            "Para Scatter: centro del rango | Para Single: longitud única"
+            sim_card,
+            "Longitud de onda central (nm)",
+            self.defaults.get('source_wavelength', 1550),
+            "Longitud de onda del láser de entrada"
         )
         
+        # Campo de ventana (solo visible para scatter)
         self.wavelength_window_entry, self.wavelength_window_frame = self.create_input_field(
-            wavelength_card,
-            "Ventana de longitud de onda (m)",
-            self.defaults.get('wavelength_window', '20e-9'),
-            "Rango total de longitudes de onda a simular",
+            sim_card,
+            "Ventana de longitud de onda (nm)",
+            self.defaults.get('wavelength_window', 100),
+            "Rango de barrido alrededor de la longitud de onda central",
             return_frame=True
         )
         
-        # ========== SECCIÓN 3: HEATER ==========
-        heater_card = self.create_section_card(scroll_frame, "⚡  Configuración del Heater")
+        # ========== PARÁMETROS TEMPORALES ==========
+        time_card = self.create_section_card(scroll_frame, "⏱️ Parámetros Temporales")
         
+        self.time_window_entry = self.create_input_field(
+            time_card,
+            "Ventana de tiempo (s)",
+            self.defaults.get('time_window', 5.12e-09),
+            "Duración de la simulación temporal"
+        )
+        
+        self.n_samples_entry = self.create_input_field(
+            time_card,
+            "Número de muestras",
+            self.defaults.get('n_samples', 15360),
+            "Resolución temporal de la simulación"
+        )
+        
+        # ========== TIPO DE SIMULACIÓN DE HEATER ==========
+        heater_card = self.create_section_card(scroll_frame, "🔥 Configuración del Heater")
+        
+        # Radio buttons para tipo de heater
         heater_radio_frame = ctk.CTkFrame(heater_card, fg_color="transparent")
-        heater_radio_frame.pack(fill="x", padx=30, pady=(10, 15))
+        heater_radio_frame.pack(fill="x", padx=30, pady=10)
         
-        radio_constant = ctk.CTkRadioButton(
+        constant_radio = ctk.CTkRadioButton(
             heater_radio_frame,
             text="Voltaje constante",
             variable=self.heater_sim_type_var,
             value="constant voltage",
             command=self.on_heater_type_changed,
             font=ctk.CTkFont(size=13),
+            text_color=TEXT_PRIMARY,
             fg_color=THEME_COLOR,
             hover_color=THEME_COLOR_HOVER
         )
-        radio_constant.pack(side="left", padx=(0, 30))
+        constant_radio.pack(anchor="w", pady=5)
         
-        radio_sweep = ctk.CTkRadioButton(
+        sweep_radio = ctk.CTkRadioButton(
             heater_radio_frame,
-            text="Barrido de voltaje (sweep)",
+            text="Barrido de voltaje",
             variable=self.heater_sim_type_var,
             value="sweep",
             command=self.on_heater_type_changed,
             font=ctk.CTkFont(size=13),
+            text_color=TEXT_PRIMARY,
             fg_color=THEME_COLOR,
             hover_color=THEME_COLOR_HOVER
         )
-        radio_sweep.pack(side="left")
+        sweep_radio.pack(anchor="w", pady=5)
         
-        # Voltaje constante
+        # Campo de voltaje constante (solo visible para constant voltage)
         self.constant_v_entry, self.constant_voltage_frame = self.create_input_field(
             heater_card,
             "Voltaje constante (V)",
-            self.defaults.get('constant_v', '10.0'),
-            "Voltaje fijo aplicado al heater",
+            self.defaults.get('constant_v', 5),
+            "Voltaje aplicado al heater",
             return_frame=True
         )
         
-        # Barrido de voltaje
+        # Campos de barrido (solo visibles para sweep)
         self.sweep_container = ctk.CTkFrame(heater_card, fg_color="transparent")
         self.sweep_container.pack(fill="x", pady=(5, 0))
         
         self.min_voltage_entry = self.create_input_field(
             self.sweep_container,
             "Voltaje mínimo (V)",
-            self.defaults.get('min_v', '0.0'),
-            "Voltaje mínimo del barrido"
+            self.defaults.get('min_v', 0),
+            "Valor inicial del barrido de voltaje"
         )
         
         self.max_voltage_entry = self.create_input_field(
             self.sweep_container,
             "Voltaje máximo (V)",
-            self.defaults.get('max_v', '20.0'),
-            "Voltaje máximo del barrido"
+            self.defaults.get('max_v', 20),
+            "Valor final del barrido de voltaje"
         )
         
         self.voltage_interval_entry = self.create_input_field(
             self.sweep_container,
             "Intervalo de voltaje (V)",
-            self.defaults.get('interval_v', '0.2'),
+            self.defaults.get('interval_v', 1),
             "Paso entre valores de voltaje"
         )
         
-        # ========== SECCIÓN 4: PARÁMETROS TEMPORALES ==========
-        time_card = self.create_section_card(scroll_frame, "⏱️  Parámetros Temporales")
-        
-        self.time_window_entry = self.create_input_field(
-            time_card,
-            "Ventana de tiempo (s)",
-            '5.12e-9',
-            "Duración temporal de la simulación"
-        )
-        
-        self.n_samples_entry = self.create_input_field(
-            time_card,
-            "Número de muestras",
-            '15360',
-            "Cantidad de puntos a muestrear"
-        )
-        
-        # ========== BOTONES ==========
+        # ========== BOTONES DE ACCIÓN ==========
         button_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         button_frame.pack(fill="x", pady=(30, 20), padx=30)
         

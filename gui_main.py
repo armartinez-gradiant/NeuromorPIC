@@ -15,6 +15,7 @@ import warnings
 import atexit
 import numpy as np
 from scipy.stats import unitary_group
+import mathfs
 
 # Suprimir warnings de threading de tkinter
 warnings.filterwarnings('ignore', category=RuntimeWarning)
@@ -692,7 +693,7 @@ class LumericalGUI:
         # Título principal
         title = ctk.CTkLabel(
             scroll_frame,
-            text="🔷 MZI Mesh - Multiplicación Matricial Óptica",
+            text="🔷 Multiplicación Matricial Óptica",
             font=ctk.CTkFont(size=24, weight="bold"),
             text_color=TEXT_PRIMARY,
             anchor="w"
@@ -701,7 +702,7 @@ class LumericalGUI:
         
         subtitle = ctk.CTkLabel(
             scroll_frame,
-            text="Simula un mesh de Mach-Zehnder para realizar multiplicación matricial óptica (U @ v)",
+            text="Multiplica vectores con matrices usando MZI mesh (soporta matrices unitarias y no unitarias con SVD)",
             font=ctk.CTkFont(size=13),
             text_color=TEXT_SECONDARY,
             anchor="w"
@@ -785,6 +786,19 @@ class LumericalGUI:
         )
         identity_radio.pack(anchor="w", pady=5)
         
+        general_radio = ctk.CTkRadioButton(
+            matrix_options_frame,
+            text="Matriz General Aleatoria (No Unitaria)",
+            variable=self.matrix_type_var,
+            value="random_general",
+            font=ctk.CTkFont(size=13),
+            text_color=TEXT_PRIMARY,
+            fg_color=THEME_COLOR,
+            hover_color=THEME_COLOR_HOVER,
+            command=self.on_matrix_type_changed
+        )
+        general_radio.pack(anchor="w", pady=5)
+
         custom_radio = ctk.CTkRadioButton(
             matrix_options_frame,
             text="Matriz Personalizada",
@@ -968,7 +982,7 @@ class LumericalGUI:
             self.vector_input_frame.pack_forget()
 
     def run_mzi_mesh_simulation(self):
-        """Ejecutar la simulación de MZI Mesh"""
+        """Ejecutar la simulación de multiplicación matricial óptica"""
         try:
             # ✅ VALIDACIÓN: Obtener y validar dimensión
             dim_text = self.mesh_dimension_var.get().strip()
@@ -996,91 +1010,142 @@ class LumericalGUI:
                 )
                 return
             
-            print(f"✓ Dimensión validada: {dim}×{dim}")
-            
-            # Generar o cargar matriz unitaria
+            # ✅ GENERAR MATRIZ según tipo seleccionado
             matrix_type = self.matrix_type_var.get()
             
-            if matrix_type == "random":
+            if matrix_type == "random_unitary":
+                from scipy.stats import unitary_group
                 unitary_matrix = unitary_group.rvs(dim)
-                print(f"✓ Matriz unitaria aleatoria {dim}×{dim} generada")
+                print(f"✓ Matriz unitaria aleatoria generada ({dim}×{dim})")
+                
             elif matrix_type == "identity":
-                unitary_matrix = np.identity(dim)
-                print(f"✓ Matriz identidad {dim}×{dim} cargada")
-            else:  # custom
-                matrix_text = self.matrix_entry.get("1.0", "end").strip()
+                unitary_matrix = np.eye(dim, dtype=complex)
+                print(f"✓ Matriz identidad generada ({dim}×{dim})")
+                
+            elif matrix_type == "random_general":
+                # Matriz general (no necesariamente unitaria)
+                unitary_matrix = np.random.randn(dim, dim) + 1j * np.random.randn(dim, dim)
+                unitary_matrix = unitary_matrix / np.linalg.norm(unitary_matrix)  # Normalizar
+                print(f"✓ Matriz general aleatoria generada ({dim}×{dim})")
+                
+            elif matrix_type == "custom":
+                # Parsear matriz custom
+                matrix_text = self.matrix_input_text.get("1.0", "end").strip()
+                
                 if not matrix_text:
-                    self.show_error_dialog("Error", "Por favor ingresa una matriz válida")
+                    self.show_error_dialog("Error", "Por favor ingresa una matriz válida.")
                     return
                 
                 try:
+                    # Intentar parsear como matriz numpy
                     unitary_matrix = np.array(eval(matrix_text))
-                    if unitary_matrix.shape != (dim, dim):
+                    
+                    if unitary_matrix.shape[0] != dim or unitary_matrix.shape[1] != dim:
                         self.show_error_dialog(
-                            "Error", 
-                            f"La matriz debe ser {dim}×{dim}\n\nDimensión ingresada: {unitary_matrix.shape}"
+                            "Error de Dimensión",
+                            f"La matriz ingresada tiene dimensión {unitary_matrix.shape}, "
+                            f"pero se esperaba {dim}×{dim}"
                         )
                         return
-                    print(f"✓ Matriz personalizada de dimensión {dim}×{dim} cargada")
+                    
+                    print(f"✓ Matriz custom cargada ({dim}×{dim})")
+                    
                 except Exception as e:
-                    self.show_error_dialog("Error", f"Formato de matriz inválido: {str(e)}")
+                    self.show_error_dialog(
+                        "Error de Formato",
+                        f"Error al parsear la matriz:\n{str(e)}\n\n"
+                        "Formato esperado: [[1,0],[0,1]] o similar"
+                    )
                     return
+            else:
+                self.show_error_dialog("Error", f"Tipo de matriz no reconocido: {matrix_type}")
+                return
             
-            # Generar o cargar vector de entrada
+            # ✅ VERIFICAR SI ES UNITARIA (informar al usuario)
+            is_matrix_unitary = mathfs.is_unitary(unitary_matrix)
+            matrix_info = "Unitaria" if is_matrix_unitary else "No Unitaria (se usará SVD)"
+            
+            # ✅ GENERAR VECTOR según tipo seleccionado
             vector_type = self.vector_type_var.get()
             
-            if vector_type == "random":
-                input_vector = np.random.randn(dim)
-                input_vector = input_vector / np.linalg.norm(input_vector)
-                print(f"✓ Vector aleatorio normalizado de dimensión {dim} generado")
-            else:  # custom
-                vector_text = self.vector_entry.get().strip()
+            if vector_type == "random_normalized":
+                input_vector = np.random.rand(dim)
+                input_vector = input_vector / np.linalg.norm(input_vector)  # Normalizar
+                print(f"✓ Vector normalizado aleatorio generado (dim={dim})")
+                
+            elif vector_type == "ones":
+                input_vector = np.ones(dim) / np.sqrt(dim)  # Normalizado
+                print(f"✓ Vector de unos normalizado generado (dim={dim})")
+                
+            elif vector_type == "custom":
+                # Parsear vector custom
+                vector_text = self.vector_input_text.get("1.0", "end").strip()
+                
                 if not vector_text:
-                    self.show_error_dialog("Error", "Por favor ingresa un vector válido")
+                    self.show_error_dialog("Error", "Por favor ingresa un vector válido.")
                     return
                 
                 try:
-                    vector_text = vector_text.replace(',', ' ')
-                    input_vector = np.array([float(x) for x in vector_text.split()])
+                    # Intentar parsear como array numpy
+                    input_vector = np.array(eval(vector_text))
                     
-                    if len(input_vector) != dim:
-                        self.show_error_dialog("Error", f"El vector debe tener {dim} elementos")
+                    if len(input_vector.shape) != 1:
+                        self.show_error_dialog(
+                            "Error de Formato",
+                            "El vector debe ser unidimensional."
+                        )
                         return
                     
-                    if self.normalize_vector_var.get():
-                        input_vector = input_vector / np.linalg.norm(input_vector)
+                    if input_vector.shape[0] != dim:
+                        self.show_error_dialog(
+                            "Error de Dimensión",
+                            f"El vector ingresado tiene dimensión {input_vector.shape[0]}, "
+                            f"pero se esperaba {dim}"
+                        )
+                        return
                     
-                    print(f"✓ Vector personalizado de dimensión {dim} cargado")
+                    print(f"✓ Vector custom cargado (dim={dim})")
+                    
                 except Exception as e:
-                    self.show_error_dialog("Error", f"Formato de vector inválido: {str(e)}")
+                    self.show_error_dialog(
+                        "Error de Formato",
+                        f"Error al parsear el vector:\n{str(e)}\n\n"
+                        "Formato esperado: [1,0,0,1] o similar"
+                    )
                     return
+            else:
+                self.show_error_dialog("Error", f"Tipo de vector no reconocido: {vector_type}")
+                return
             
-            # Preparar parámetros
+            # ✅ PREPARAR PARÁMETROS
             params = {
                 'unitary_matrix': unitary_matrix,
                 'input_vector': input_vector,
                 'visualize': self.visualize_mesh_var.get(),
                 'show_interconnect': self.show_interconnect_var.get(), 
-                'platform': self.selected_platform
+                'platform': self.selected_platform,
+                'is_unitary': is_matrix_unitary,
+                'matrix_type': matrix_type,
+                'vector_type': vector_type
             }
             
             print("\n" + "="*50)
-            print("🔷 EJECUTANDO SIMULACIÓN MZI MESH")
+            print("🔷 EJECUTANDO SIMULACIÓN DE MULTIPLICACIÓN MATRICIAL")
             print("="*50)
             print(f"Plataforma: {self.selected_platform.upper()}")
             print(f"Dimensión: {dim}×{dim}")
-            print(f"Matriz: {matrix_type}")
+            print(f"Matriz: {matrix_type} ({matrix_info})")
             print(f"Vector: {vector_type}")
             print(f"Visualizar: {params['visualize']}")
             print("="*50 + "\n")
             
-            # Ejecutar simulación
-            from GUI.mzi_mesh_simulation_window import MZIMeshSimulationWindow
-            MZIMeshSimulationWindow(
+            # ✅ EJECUTAR SIMULACIÓN con ventana de progreso
+            from GUI.matrix_mult_simulation_window import MatrixMultSimulationWindow
+            MatrixMultSimulationWindow(
                 parent=self.root,
                 api=self.api,
                 params=params,
-                callback=self.on_mzi_mesh_complete
+                callback=self.on_matrix_mult_complete
             )
             
         except Exception as e:
@@ -1088,16 +1153,31 @@ class LumericalGUI:
             import traceback
             traceback.print_exc()
 
-    def on_mzi_mesh_complete(self, success, results=None, error=None):
-        """Callback cuando termina la simulación MZI Mesh"""
+    def on_matrix_mult_complete(self, success, results=None, error=None):
+        """Callback cuando termina la simulación de multiplicación matricial"""
         if success:
-            print("\n✓ Simulación MZI Mesh completada exitosamente")
+            print("\n✓ Simulación de multiplicación matricial completada exitosamente")
             if results:
                 print("Resultados:")
                 print(f"  Error promedio: {results.get('avg_error', 'N/A')}")
                 print(f"  Error máximo: {results.get('max_error', 'N/A')}")
+                print(f"  Plataforma: {results.get('platform', 'N/A')}")
+                print(f"  Dimensión: {results.get('dimension', 'N/A')}")
+                
+                # Mostrar diálogo de éxito
+                self.show_info_dialog(
+                    "Simulación Completada",
+                    f"✓ Multiplicación matricial completada exitosamente\n\n"
+                    f"Dimensión: {results.get('dimension', 'N/A')}\n"
+                    f"Error promedio: {results.get('avg_error', 'N/A'):.6e}\n"
+                    f"Error máximo: {results.get('max_error', 'N/A'):.6e}"
+                )
         else:
-            print(f"\n✗ Simulación MZI Mesh falló: {error}")
+            print(f"\n✗ Error en simulación de multiplicación matricial: {error}")
+            self.show_error_dialog(
+                "Error en Simulación",
+                f"La simulación falló:\n\n{error}"
+            )
 
     def show_error_dialog(self, title, message):
         """Mostrar diálogo de error"""
