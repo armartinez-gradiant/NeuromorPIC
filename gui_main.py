@@ -583,17 +583,65 @@ class LumericalGUI:
             )
             value_widget.pack(side="left", padx=(10, 0))
     
+    def on_simulation_complete(self, success, error=None):
+        """Callback cuando termina la simulación"""
+        if success:
+            print("\n✓ Simulación completada exitosamente")
+            self.update_info_display()
+            self.navigate_to("home")
+            self.show_success_dialog("Éxito", "Simulación completada exitosamente")
+        else:
+            print(f"\n✗ Error en simulación: {error}")
+            self.show_error_dialog("Error", f"Error durante la simulación:\n{error}")
+
     def show_simulate(self):
-        """Mostrar pantalla de Simulate (placeholder)"""
+        """Mostrar pantalla de configuración de simulación"""
         self.clear_content()
-        placeholder = ctk.CTkLabel(
-            self.content_frame,
-            text="🔬 Simulate\n\nComing soon...",
-            font=ctk.CTkFont(size=24),
-            text_color=TEXT_SECONDARY
+        
+        # Importar el componente de formulario
+        from GUI.simulation_config_form import SimulationConfigForm
+        
+        # Crear y mostrar el formulario
+        form = SimulationConfigForm(
+            parent=self.content_frame,
+            defaults=self.defaults,
+            on_submit_callback=self.on_simulation_config_submit,
+            on_cancel_callback=lambda: self.navigate_to("home")
         )
-        placeholder.pack(expand=True)
+        form.pack(fill="both", expand=True)
     
+    def on_simulation_config_submit(self, params):
+        """Callback cuando se confirma la configuración del formulario"""
+        try:
+            # Agregar plataforma actual
+            params['platform'] = self.selected_platform
+            
+            # Guardar configuración
+            self.last_config = params
+            
+            # Log de confirmación
+            print("\n" + "="*70)
+            print("✓ CONFIGURACIÓN COMPLETADA")
+            print("="*70)
+            print("Parámetros:")
+            for key, value in params.items():
+                print(f"  • {key}: {value}")
+            print("="*70 + "\n")
+            
+            # Abrir ventana de simulación
+            from GUI.simulation_window import SimulationWindow
+            SimulationWindow(
+                parent=self.root,
+                api=self.api,
+                params=params,
+                callback=self.on_simulation_complete
+            )
+            
+        except Exception as e:
+            self.show_error_dialog("Error", f"Error al procesar configuración:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
+
     def show_results(self):
         """Mostrar pantalla de Results (placeholder)"""
         self.clear_content()
@@ -835,7 +883,7 @@ class LumericalGUI:
         self.vector_entry.pack(fill="x", padx=15, pady=(0, 10))
         
         # Checkbox para normalizar
-        self.normalize_vector_var = ctk.CTkVariable(value=True)
+        self.normalize_vector_var = ctk.BooleanVar(value=True)
         normalize_checkbox = ctk.CTkCheckBox(
             self.vector_input_frame,
             text="Normalizar vector",

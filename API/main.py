@@ -131,6 +131,15 @@ class API:
             'interval_v': str(interval_v),
             'constant_v': str(constant_v)
         }
+    
+    def get_total_simulations(self):
+        """
+        Get the total number of simulations in the current cache
+        
+        Returns:
+            int: Total count of all cached simulations
+        """
+        return len(self.wgT) + len(self.activebentwg) + len(self.passivebentwg) + len(self.neff)
 
     def get_heat_sim(self):
         cached_to_use = None
