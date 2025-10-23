@@ -121,7 +121,7 @@ def MZI_multiplication(u, v, ic, create_circuit, graph=False):
         create_circuit: Si crear el circuito o solo redefinir
         graph: Si visualizar descomposición
     """
-    import mathfs
+    from . import mathfs
     
     dim = np.shape(u)[0]
     v_theoretical = u @ v
@@ -158,7 +158,7 @@ def general_MZI_multiplication(u, v, ic, graph=False):
         ic: Handle de INTERCONNECT
         graph: Si visualizar descomposición
     """
-    import mathfs
+    from . import mathfs
     from scipy.linalg import svd, diagsvd
     
     create_circuit = True

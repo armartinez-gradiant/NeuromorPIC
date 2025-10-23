@@ -16,7 +16,7 @@ sys.path.insert(0, project_root)
 
 # Importar módulos del proyecto
 from Lumerical import interface
-import mathfs
+from matrix_mult_N import mathfs
 
 # Importar el nuevo sistema de multiplicación matricial
 from matrix_mult_N.main import (

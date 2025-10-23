@@ -15,7 +15,7 @@ import warnings
 import atexit
 import numpy as np
 from scipy.stats import unitary_group
-import mathfs
+from matrix_mult_N import mathfs
 
 # Suprimir warnings de threading de tkinter
 warnings.filterwarnings('ignore', category=RuntimeWarning)

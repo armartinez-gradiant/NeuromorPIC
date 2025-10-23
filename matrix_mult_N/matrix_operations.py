@@ -8,12 +8,7 @@ from scipy.linalg import svd, diagsvd
 import interferometer as itf
 import sys
 import os
-
-# Añadir path del proyecto para importar mathfs
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
-
-import mathfs
+from matrix_mult_N from . import mathfs
 
 
 def bs_list_to_vectors(I):
