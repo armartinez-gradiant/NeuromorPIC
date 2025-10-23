@@ -110,6 +110,7 @@ def create_matrix_icp(
 
 
 # Mantener funciones de multiplicación para compatibilidad
+# Mantener funciones de multiplicación para compatibilidad
 def MZI_multiplication(u, v, ic, create_circuit, graph=False):
     """
     Multiplica vector v por matriz unitaria u usando MZI mesh
@@ -121,12 +122,12 @@ def MZI_multiplication(u, v, ic, create_circuit, graph=False):
         create_circuit: Si crear el circuito o solo redefinir
         graph: Si visualizar descomposición
     """
-    from . import mathfs
+    from . import mathfs  # ← CORREGIDO
     
     dim = np.shape(u)[0]
     v_theoretical = u @ v
     k = 0
-    
+  
     if create_circuit:
         generate_lasers(v ** 2, np.angle(v), ic)
         mzi_mesh(u, ic=ic, k=k, xpos=100, graph=graph)
@@ -158,8 +159,8 @@ def general_MZI_multiplication(u, v, ic, graph=False):
         ic: Handle de INTERCONNECT
         graph: Si visualizar descomposición
     """
-    from . import mathfs
-    from scipy.linalg import svd, diagsvd
+    from . import mathfs  # ← CORREGIDO
+    from scipy.linalg import svd, diagsvg
     
     create_circuit = True
     dimU, dimV = np.shape(u)
@@ -167,7 +168,7 @@ def general_MZI_multiplication(u, v, ic, graph=False):
     U, S, Vh = svd(u)
     
     vth1 = Vh @ v
-    vth2 = diagsvd(S, dimU, dimV) @ vth1
+    vth2 = diagsvg(S, dimU, dimV) @ vth1
     vth3 = U @ vth2
 
     k = 0
