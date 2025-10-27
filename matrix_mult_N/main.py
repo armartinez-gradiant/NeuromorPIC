@@ -21,8 +21,8 @@ except ImportError:
     except ImportError:
         lumapi = None  # Se cargará cuando sea necesario
 
-# Importar funciones de los nuevos módulos
-from matrix_operations import (
+# ===== CORRECCIÓN: Usar importaciones relativas =====
+from .matrix_operations import (
     theoretical_mzi_mult,
     decompose_matrix_svd,
     is_unitary,
@@ -30,14 +30,14 @@ from matrix_operations import (
     compute_theoretical_result
 )
 
-from mzi_generator import (
+from .mzi_generator import (
     generate_mzi,
     mzi_diagonal,
     generate_amplifiers,
     generate_non_linearities
 )
 
-from circuit_builder import (
+from .circuit_builder import (
     mzi_mesh,
     general_mzi_mesh,
     neural_network_layer,
@@ -49,6 +49,8 @@ from circuit_builder import (
     redefine_mesh,
     connect_inputs_to_mesh
 )
+
+from . import mathfs  # ← CORRECCIÓN: importación relativa
 
 
 def create_matrix_icp(
@@ -109,9 +111,7 @@ def create_matrix_icp(
     return path, True
 
 
-# Mantener funciones de multiplicación para compatibilidad
-# Mantener funciones de multiplicación para compatibilidad
-def MZI_multiplication(u, v, ic, create_circuit, graph=False):
+def MZI_multiplication(u, v, ic, create_circuit=True, graph=False):
     """
     Multiplica vector v por matriz unitaria u usando MZI mesh
     
@@ -121,9 +121,10 @@ def MZI_multiplication(u, v, ic, create_circuit, graph=False):
         ic: Handle de INTERCONNECT
         create_circuit: Si crear el circuito o solo redefinir
         graph: Si visualizar descomposición
-    """
-    import mathfs  # ← CORREGIDO
     
+    Returns:
+        np.ndarray: Vector resultado de la multiplicación
+    """
     dim = np.shape(u)[0]
     v_theoretical = u @ v
     k = 0
@@ -149,6 +150,24 @@ def MZI_multiplication(u, v, ic, create_circuit, graph=False):
     return v_mesh
 
 
+def diagsvg(S, dimU, dimV):
+    """
+    Crea matriz diagonal a partir de valores singulares
+    
+    Args:
+        S: Array de valores singulares
+        dimU, dimV: Dimensiones de la matriz diagonal
+    
+    Returns:
+        np.ndarray: Matriz diagonal dimU x dimV
+    """
+    diagonal_matrix = np.zeros((dimU, dimV))
+    min_dim = min(dimU, dimV, len(S))
+    for i in range(min_dim):
+        diagonal_matrix[i, i] = S[i]
+    return diagonal_matrix
+
+
 def general_MZI_multiplication(u, v, ic, graph=False):
     """
     Multiplica vector v por matriz u (unitaria o no) usando SVD si es necesario
@@ -158,8 +177,10 @@ def general_MZI_multiplication(u, v, ic, graph=False):
         v: Vector de entrada
         ic: Handle de INTERCONNECT
         graph: Si visualizar descomposición
+    
+    Returns:
+        np.ndarray: Vector resultado de la multiplicación
     """
-    import mathfs  # ← CORREGIDO
     from scipy.linalg import svd
     
     create_circuit = True
@@ -176,7 +197,7 @@ def general_MZI_multiplication(u, v, ic, graph=False):
         generate_lasers(v ** 2, np.angle(v), ic)
         general_mzi_mesh(u, k, ic=ic, xpos=100)
         
-        connect_inputs_to_mesh(dimU, ic, k=0, input="CW")
+        connect_inputs_to_mesh(dimV, ic, k=0, input="CW")
 
         redefine_mesh(Vh, 0, ic)
         redefine_mesh(U, 2, ic)
@@ -185,7 +206,7 @@ def general_MZI_multiplication(u, v, ic, graph=False):
         generate_power_meters(dimU, ic, 2)
     else:
         redefine_lasers(v ** 2, np.angle(v), ic)
-        redefine_mesh(u, ic)
+        redefine_mesh(u, 0, ic)
 
     ic.run()
     v_mesh1 = get_results(dimV, 0, ic)

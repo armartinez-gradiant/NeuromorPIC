@@ -18,42 +18,44 @@ def generate_mzi(theta, phi, i, j, k, ic, xpos=0, ypos=0, diagonal=False):
         xpos, ypos: Posición en el layout
         diagonal: Si es parte de un mesh diagonal
     """
-    # Coupler 1
-    ic.addelement("Waveguide Coupler Unidirectional")
-    ic.set("name", f"coupler{i}{j}{k}1")
-    ic.set("x position", xpos)
-    ic.set("y position", ypos)
-    ic.set("coupling coefficient 1", np.sin(theta / 2) ** 2)
-
-    # Phase shifter (phi)
+    # Phase shifter phi
     ic.addelement("Optical Phase Shift Unidirectional")
     ic.set("name", f"phi{i}{j}{k}")
     ic.set("phase shift", phi)
-    ic.set("x position", xpos + 250)
+    ic.set("x position", xpos)
     ic.set("y position", ypos)
 
-    # Coupler 2
+    # Primer coupler
+    ic.addelement("Waveguide Coupler Unidirectional")
+    ic.set("name", f"coupler{i}{j}{k}1")
+    ic.set("coupling coefficient 1", np.sin(theta / 2) ** 2)
+    ic.set("x position", xpos + 150)
+    ic.set("y position", ypos)
+
+    # Segundo coupler
     ic.addelement("Waveguide Coupler Unidirectional")
     ic.set("name", f"coupler{i}{j}{k}2")
-    ic.set("x position", xpos + 500)
-    ic.set("y position", ypos)
     ic.set("coupling coefficient 1", np.sin(theta / 2) ** 2)
+    ic.set("x position", xpos + 450)
+    ic.set("y position", ypos)
 
-    # Phase shifters de salida (otheta)
+    # Output phase shifters
     ic.addelement("Optical Phase Shift Unidirectional")
     ic.set("name", f"otheta{i}{j}{k}1")
-    ic.set("x position", xpos + 700)
+    ic.set("phase shift", 0)
+    ic.set("x position", xpos + 600)
     ic.set("y position", ypos)
 
     if not diagonal:
         ic.addelement("Optical Phase Shift Unidirectional")
         ic.set("name", f"otheta{i}{j}{k}2")
-        ic.set("x position", xpos + 700)
+        ic.set("phase shift", 0)
+        ic.set("x position", xpos + 600)
         ic.set("y position", ypos + 100)
 
-    # Conexiones internas del MZI
-    ic.connect(f"coupler{i}{j}{k}1", "output 1", f"phi{i}{j}{k}", "input")
-    ic.connect(f"phi{i}{j}{k}", "output", f"coupler{i}{j}{k}2", "input 1")
+    # Conectar componentes internos del MZI
+    ic.connect(f"phi{i}{j}{k}", "output", f"coupler{i}{j}{k}1", "input 1")
+    ic.connect(f"coupler{i}{j}{k}1", "output 1", f"coupler{i}{j}{k}2", "input 1")
     ic.connect(f"coupler{i}{j}{k}1", "output 2", f"coupler{i}{j}{k}2", "input 2")
     ic.connect(f"coupler{i}{j}{k}2", "output 1", f"otheta{i}{j}{k}1", "input")
     
@@ -131,6 +133,8 @@ def generate_non_linearities(dim, k, ic, xpos=0, ypos=0):
         xpos, ypos: Posición base
     """
     for i in range(dim):
+        # Nota: "optical relu" debe existir en tu librería de INTERCONNECT
+        # Si no existe, este componente fallará
         ic.addelement("optical relu")
         ic.set("name", f"relu{i}{k}")
         ic.set("x position", xpos)

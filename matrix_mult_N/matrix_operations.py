@@ -105,14 +105,18 @@ def compute_theoretical_result(matrix: np.ndarray, vector: np.ndarray) -> np.nda
 
 def bs_list_to_vectors(bs_list):
     """
-    Convierte una lista de beamsplitters en vectores de thetas y phis
+    Convierte una lista de beamsplitters en vectores de thetas, phis y modos
     
     Args:
         bs_list: Lista de objetos beamsplitter del módulo interferometer
         
     Returns:
-        Tuple (thetas, phis): Vectores numpy con los ángulos theta y phi
+        Tuple (thetas, phis, mode1, mode2): Vectores numpy con los ángulos y modos
+        Nota: mode1 y mode2 son arrays de índices (no se usan en el código actual)
     """
     thetas = np.array([bs.theta for bs in bs_list], dtype=float)
     phis = np.array([bs.phi for bs in bs_list], dtype=float)
-    return thetas, phis
+    # mode1 y mode2 no se usan realmente, devolver arrays de índices
+    mode1 = np.arange(len(bs_list), dtype=int)
+    mode2 = np.arange(len(bs_list), dtype=int)
+    return thetas, phis, mode1, mode2
