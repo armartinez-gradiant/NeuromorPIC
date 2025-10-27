@@ -22,7 +22,7 @@ except ImportError:
         lumapi = None  # Se cargará cuando sea necesario
 
 # Importar funciones de los nuevos módulos
-from .matrix_operations import (
+from matrix_operations import (
     theoretical_mzi_mult,
     decompose_matrix_svd,
     is_unitary,
@@ -30,14 +30,14 @@ from .matrix_operations import (
     compute_theoretical_result
 )
 
-from .mzi_generator import (
+from mzi_generator import (
     generate_mzi,
     mzi_diagonal,
     generate_amplifiers,
     generate_non_linearities
 )
 
-from .circuit_builder import (
+from circuit_builder import (
     mzi_mesh,
     general_mzi_mesh,
     neural_network_layer,
@@ -122,7 +122,7 @@ def MZI_multiplication(u, v, ic, create_circuit, graph=False):
         create_circuit: Si crear el circuito o solo redefinir
         graph: Si visualizar descomposición
     """
-    from . import mathfs  # ← CORREGIDO
+    import mathfs  # ← CORREGIDO
     
     dim = np.shape(u)[0]
     v_theoretical = u @ v
@@ -159,7 +159,7 @@ def general_MZI_multiplication(u, v, ic, graph=False):
         ic: Handle de INTERCONNECT
         graph: Si visualizar descomposición
     """
-    from . import mathfs  # ← CORREGIDO
+    import mathfs  # ← CORREGIDO
     from scipy.linalg import svd
     
     create_circuit = True
