@@ -1,6 +1,7 @@
 """
 Módulo principal para multiplicación matricial óptica
 Punto de entrada simplificado que importa de submódulos
+VERSIÓN CORREGIDA - Power meters ahora se conectan correctamente
 """
 
 import numpy as np
@@ -47,7 +48,9 @@ from .circuit_builder import (
     generate_power_meters,
     get_results,
     redefine_mesh,
-    connect_inputs_to_mesh
+    connect_inputs_to_mesh,
+    connect_mesh_to_output,
+    create_and_connect_power_meters  # ← NUEVO: Función integrada para power meters
 )
 
 from . import mathfs  # ← CORRECCIÓN: importación relativa
@@ -115,6 +118,9 @@ def MZI_multiplication(u, v, ic, create_circuit=True, graph=False):
     """
     Multiplica vector v por matriz unitaria u usando MZI mesh
     
+    CORRECCIÓN: Los power meters se crean como pm0, pm1, etc. (sin sufijo de capa)
+    y se conectan correctamente usando connect_mesh_to_output()
+    
     Args:
         u: Matriz unitaria
         v: Vector de entrada
@@ -130,11 +136,24 @@ def MZI_multiplication(u, v, ic, create_circuit=True, graph=False):
     k = 0
   
     if create_circuit:
+        # 1. Generar láseres de entrada
         generate_lasers(v ** 2, np.angle(v), ic)
+        
+        # 2. Generar el mesh MZI
         mzi_mesh(u, ic=ic, k=k, xpos=100, graph=graph)
+        
+        # 3. Conectar láseres al mesh
         connect_inputs_to_mesh(dim, ic, k=0, input="CW")
+        
+        # 4. Redefinir parámetros del mesh
         redefine_mesh(u, 0, ic)
-        generate_power_meters(dim, ic, 0)
+        
+        # 5 y 6. ✅ NUEVO: Crear Y conectar power meters con posicionamiento correcto
+        # Esta función reemplaza:
+        #   - generate_power_meters(dim, ic, 0)
+        #   - connect_mesh_to_output(k=0, ic=ic, dimV=dim, dimS=dim, output="pm")
+        # Ahora crea cada power meter en la posición correcta (a la derecha de su salida)
+        create_and_connect_power_meters(dim, k=0, ic=ic)
     else:
         redefine_lasers(v ** 2, np.angle(v), ic)
         redefine_mesh(u, 0, ic)
@@ -204,6 +223,10 @@ def general_MZI_multiplication(u, v, ic, graph=False):
         generate_power_meters(dimV, ic, 0)
         generate_power_meters(dimU, ic, 1, diagonal=True)
         generate_power_meters(dimU, ic, 2)
+        
+        # ← NOTA: En general_mzi_mesh ya se llama a connect_mesh_to_output internamente
+        # para conectar los amps y los meshes, así que aquí no hace falta agregarlo
+        # manualmente, pero si tienes problemas también podrías agregarlo aquí
     else:
         redefine_lasers(v ** 2, np.angle(v), ic)
         redefine_mesh(u, 0, ic)

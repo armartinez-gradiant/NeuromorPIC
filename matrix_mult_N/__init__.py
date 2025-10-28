@@ -26,7 +26,9 @@ from .circuit_builder import (
     generate_power_meters,
     get_results,
     redefine_mesh,
-    connect_inputs_to_mesh
+    connect_inputs_to_mesh,
+    connect_mesh_to_output,
+    create_and_connect_power_meters  # ← NUEVO
 )
 
 from .mzi_generator import (
@@ -57,9 +59,10 @@ __all__ = [
     'get_results',
     'redefine_mesh',
     'connect_inputs_to_mesh',
+    'connect_mesh_to_output',
+    'create_and_connect_power_meters',  # ← NUEVO
     'generate_mzi',
     'mzi_diagonal',
     'generate_amplifiers',
     'generate_non_linearities',
-    'mathfs'
-]
+    'mathfs']

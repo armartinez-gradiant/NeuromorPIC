@@ -29,7 +29,7 @@ def main_test():
         # =========================
         # PRUEBA SIMPLE: matriz unitaria 4x4
         # =========================
-        dim = 4
+        dim = 8
         u = unitary_group.rvs(dim)
         v = mathfs.random_vector(dim, normalize="unit")
 
