@@ -1,12 +1,14 @@
 """
 Constructor de circuitos completos: meshes, conexiones y redes neuronales
+VERSIÓN CORREGIDA - Octubre 2025
+Corrección principal: _connect_mesh_interior ahora incluye implementación COMPLETA para meshes pares e impares
 """
 
 import numpy as np
 from scipy.linalg import svd
 import interferometer as itf
-from .matrix_operations import bs_list_to_vectors, is_unitary
-from .mzi_generator import (
+from matrix_mult_N.matrix_operations import bs_list_to_vectors, is_unitary
+from matrix_mult_N.mzi_generator import (
     generate_mzi, mzi_diagonal, generate_amplifiers, 
     generate_non_linearities, laser, power_meter
 )
@@ -42,23 +44,20 @@ def redefine_lasers(powers, phases, ic):
         ic.setnamed(f"CW{i}", "phase", phases[i])
 
 
+
 def generate_power_meters(dim, ic, k=0, diagonal=False, xpos_offset=0):
     """
-    Genera medidores de potencia en las salidas
-    
-    Args:
-        dim: Número de salidas
-        ic: Handle de INTERCONNECT
-        k: Índice de capa
-        diagonal: Si es para mesh diagonal
-        xpos_offset: Offset en posición X
+    Genera medidores de potencia en las salidas.
+
+    Cambios:
+    - Los nombres pasan a ser 'pm{i}' (sin sufijo de capa) para alinearse con el proyecto actual.
+    - Si en tu flujo necesitas múltiples bancos por capa, puedes restaurar el sufijo,
+      pero asegúrate de que lectura y creación coincidan.
     """
     for i in range(dim):
-        if diagonal:
-            name = f"pm{i}{k}"
-        else:
-            name = f"pm{i}{k}"
+        name = f"pm{i}"  # <-- sin {k}, coincide con lo visto en INTERCONNECT (pm0, pm1, ...)
         power_meter(name, ic, xpos=xpos_offset, ypos=i * 300)
+
 
 
 def retrieve_position(element, ic):
@@ -75,44 +74,132 @@ def retrieve_position(element, ic):
     return ic.getposition(element, "x"), ic.getposition(element, "y")
 
 
-def get_results(dim, k, ic):
+
+def get_results(dim, k, ic, mode=None):
     """
-    Extrae resultados de los medidores de potencia
-    
-    Args:
-        dim: Número de salidas
-        k: Índice de capa
-        ic: Handle de INTERCONNECT
-    
-    Returns:
-        np.ndarray: Array con potencias medidas
+    Lee potencia de los Optical Power Meter (OPWM) en INTERCONNECT.
+
+    - Si mode is None -> extrae la potencia TOTAL (OPWM: 'sum/power').
+    - Si mode is int  -> extrae 'mode {mode}/power' (p.ej., mode=1 -> TE).
+    - Tolera nombres 'pm{i}{k}' y 'pm{i}'.
+    - Convierte datasets (dict/array) en float.
+
+    Refs:
+      - OPWM Results: 'sum/power', 'mode #/power' (docs oficiales).      [1]
+      - getresult devuelve datasets (dict) en Python (API).               [2]
+      - Uso de getresult/haveresult en INTERCONNECT (comando oficial).    [3]
+
+    [1] citeturn6search24
+    [2] citeturn6search26
+    [3] citeturn6search17
     """
-    results = np.zeros(dim)
+    import numpy as np
+
+    def _first_float(x):
+        # Convierte dict/array/escalares a float (primer valor)
+        if isinstance(x, dict):
+            # toma el primer valor numérico del dict
+            for v in x.values():
+                arr = np.array(v)
+                if np.issubdtype(arr.dtype, np.number) and arr.size > 0:
+                    return float(arr.ravel()[0])
+            raise ValueError(f"Dataset sin valores numéricos: keys={list(x.keys())}")
+        else:
+            arr = np.array(x)
+            return float(arr.ravel()[0])
+
+    results = np.zeros(dim, dtype=float)
+
+    # Nombre del resultado que queremos leer
+    if mode is None:
+        # Potencia total (OPWM)
+        preferred = [ "sum/power" ]   # clave oficial para total
+        fallbacks = [ "power", "optical power", "P" ]  # por si usas otros elementos/analyzers
+    else:
+        preferred = [ f"mode {mode}/power" ]  # p.ej. 'mode 1/power' (TE)
+        fallbacks = [ "power", "optical power", "P" ]
+
     for i in range(dim):
-        pm_name = f"pm{i}{k}"
-        power = ic.getresult(pm_name, "power")
-        results[i] = power
-    
+        # 1) Resolver nombre real del medidor
+        pm_name = None
+        for cand in (f"pm{i}{k}", f"pm{i}"):
+            try:
+                _ = ic.getresult(cand)  # si no lanza, el objeto existe
+                pm_name = cand
+                break
+            except Exception:
+                continue
+        if pm_name is None:
+            raise RuntimeError(f"No existe power meter para i={i} (probados 'pm{i}{k}' y 'pm{i}').")
+
+        # 2) Intentar claves preferidas y, si no, las alternativas
+        last_err = None
+        value = None
+
+        # helper para probar una clave
+        def try_key(key):
+            try:
+                data = ic.getresult(pm_name, key)
+                return _first_float(data)
+            except Exception as e:
+                return e  # devolvemos la excepción para reportar si ninguna funciona
+
+        # a) preferidas
+        for key in preferred:
+            res = try_key(key)
+            if not isinstance(res, Exception):
+                value = res
+                break
+            last_err = res
+
+        # b) alternativas (solo si no encontramos preferidas)
+        if value is None:
+            for key in fallbacks:
+                res = try_key(key)
+                if not isinstance(res, Exception):
+                    value = res
+                    break
+                last_err = res
+
+        if value is None:
+            # lista resultados disponibles para facilitar el debug
+            try:
+                avail = ic.getresult(pm_name)
+                avail_keys = list(avail.keys()) if hasattr(avail, "keys") else avail
+            except Exception as e2:
+                avail_keys = f"(no se pudo listar: {e2})"
+
+            raise RuntimeError(
+                f"No pude extraer {preferred[0]} de '{pm_name}'. "
+                f"Alternativas probadas: {fallbacks}. "
+                f"Último error: {last_err}. "
+                f"Resultados disponibles: {avail_keys}"
+            )
+
+        results[i] = value
+
     return results
+
 
 
 def redefine_mesh(u, k, ic):
     """
     Redefine los parámetros de un mesh existente
+    VERSIÓN SIMPLIFICADA - Solo redefine thetas y phis, no deltas de salida
     
     Args:
         u: Nueva matriz unitaria
         k: Índice de capa
         ic: Handle de INTERCONNECT
+    
+    Nota: Las fases de salida (deltas) se mantienen como fueron generadas originalmente
     """
     I = itf.square_decomposition(u)
-    deltas = I.output_phases
-    thetas, phis, mode1, mode2 = bs_list_to_vectors(I.BS_list)  # ← CORRECCIÓN
+    thetas, phis, mode1, mode2 = bs_list_to_vectors(I.BS_list)
     
     dim = u.shape[0]
     L = dim - 2
     count = 0
-    dcount = 0
     
     if L < 0:
         return
@@ -121,22 +208,10 @@ def redefine_mesh(u, k, ic):
         j_max = 2 * min(i, L - i) + (1 if i > (L // 2) else 0)
 
         for j in range(j_max + 1):
-            from .mzi_generator import redefine_MZI
+            from matrix_mult_N.mzi_generator import redefine_MZI
             
-            if j == 0:
-                redefine_MZI(i, j, k, thetas[count], phis[count], ic=ic, delta1=deltas[dcount])
-                dcount += 1
-            elif j == j_max and i >= dim // 2 and i < dim - 1:
-                redefine_MZI(i, j_max - j, k, thetas[count], phis[count], ic=ic, 
-                           delta1=deltas[dcount], delta2=deltas[dcount + 1])
-                dcount += 2
-            elif j == j_max - 1 and i == dim - 2:
-                redefine_MZI(i, j_max - j, k, thetas[count], phis[count], ic=ic, 
-                           delta2=deltas[dcount])
-                dcount += 1
-            else:
-                redefine_MZI(i, j_max - j, k, thetas[count], phis[count], ic=ic)
-
+            # Simplemente redefinir theta y phi, sin tocar las deltas
+            redefine_MZI(i, j_max - j if j > 0 else j, k, thetas[count], phis[count], ic=ic)
             count += 1
 
 
@@ -155,7 +230,7 @@ def mzi_mesh(u, ic, k, xpos=0, ypos=0, graph=False, testing=False):
     # Descomponer matriz con interferometer
     I = itf.square_decomposition(u)
     deltas = I.output_phases
-    thetas, phis, mode1, mode2 = bs_list_to_vectors(I.BS_list)  # ← CORRECCIÓN
+    thetas, phis, mode1, mode2 = bs_list_to_vectors(I.BS_list)
 
     if graph:
         I.draw()
@@ -191,66 +266,102 @@ def mzi_mesh(u, ic, k, xpos=0, ypos=0, graph=False, testing=False):
 def _connect_mesh_interior(dim, L, k, ic):
     """
     Conecta los MZIs internos del mesh
-    VERSIÓN CORREGIDA - Basada en lógica probada
+    VERSIÓN COMPLETAMENTE CORREGIDA - Octubre 2025
+    Implementación completa basada en Lumerical/mzi_mesh.py probado
+    
+    Soporta tanto meshes PARES (dim % 2 == 0) como IMPARES (dim % 2 == 1)
     
     Args:
         dim: Dimensión del mesh
         L: L = dim - 2
-        k: Índice de capa
+        k: Índice de capa (para nomenclatura con múltiples meshes)
         ic: Handle de INTERCONNECT
     """
     if L < 0:
         return
     
-    for i in range(L + 1):
-        j_max = 2 * min(i, L - i) + (1 if i > (L // 2) else 0)
-        
-        for j in range(j_max + 1):
-            # Solo conectar si no estamos en la última iteración
-            if i < L:
-                # Primera mitad del mesh (antes de la columna central)
-                if i < (L + 1) // 2:
-                    if j == 0:
-                        # Fila superior
-                        ic.connect(f"otheta{i}{j}{k}1", "output", f"phi{i + 1}{j}{k}", "input")
-                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i + 1}{j + 1}{k}", "input")
-                    else:
-                        # Elementos interiores
-                        ic.connect(f"otheta{i}{j_max - j}{k}1", "output", 
-                                 f"coupler{i + 1}{j - 1}{k}1", "input 2")
-                        ic.connect(f"otheta{i}{j_max - j}{k}2", "output", 
-                                 f"coupler{i + 1}{j}{k}1", "input 2")  # ← CORRECCIÓN: input 2
+    # ==================== MESHES PARES (dim % 2 == 0) ====================
+    if dim % 2 == 0:
+        for i in range(L + 1):  
+            j_max = 2 * min(i, L - i) + (1 if i > (L // 2) else 0)
+            
+            for j in range(j_max + 1):
                 
-                # Columna central
-                elif i == (L + 1) // 2:
-                    if j == 0:
-                        ic.connect(f"otheta{i}{j}{k}1", "output", 
-                                 f"phi{i + 1}{j}{k}", "input")  # ← CORRECCIÓN: conectar a phi, no coupler
-                        ic.connect(f"otheta{i}{j}{k}2", "output", 
-                                 f"phi{i + 1}{j + 1}{k}", "input")
-                    elif j == j_max:
-                        ic.connect(f"otheta{i}{j_max - j}{k}1", "output", 
-                                 f"phi{i + 1}{j - 1}{k}", "input")
-                        ic.connect(f"otheta{i}{j_max - j}{k}2", "output", 
-                                 f"coupler{i + 1}{j}{k}1", "input 2")
-                    else:
-                        ic.connect(f"otheta{i}{j_max - j}{k}1", "output", 
-                                 f"phi{i + 1}{j - 1}{k}", "input")
-                        ic.connect(f"otheta{i}{j_max - j}{k}2", "output", 
-                                 f"phi{i + 1}{j}{k}", "input")
+                # 1. Iteraciones ANTES de la central
+                if i < (L+1)//2:
+                    if j == 0:  # Fila superior
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"phi{i+1}{j}{k}", "input")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j+1}{k}", "input")
+                    else:  # Elementos interiores
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j+1}{k}", "input")
                 
-                # Segunda mitad del mesh (después de la columna central)
-                else:  # i > (L + 1) // 2
-                    if j == 0:
-                        ic.connect(f"otheta{i}{j}{k}1", "output", 
-                                 f"phi{i + 1}{j}{k}", "input")  # ← CORRECCIÓN: conectar a phi
-                        ic.connect(f"otheta{i}{j}{k}2", "output", 
-                                 f"coupler{i + 1}{j + 1}{k}1", "input 2")
-                    else:
-                        ic.connect(f"otheta{i}{j_max - j}{k}1", "output", 
-                                 f"phi{i + 1}{j - 1}{k}", "input")
-                        ic.connect(f"otheta{i}{j_max - j}{k}2", "output", 
-                                 f"phi{i + 1}{j}{k}", "input")
+                # 2. Iteración CENTRAL
+                if i == (L+1)//2:
+                    if j == 0:  # Primer elemento central
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j}{k}", "input")
+                    elif j < j_max:
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j}{k}", "input")
+                    
+                    if j == j_max:
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"coupler{i+1}{j-1}{k}1", "input 2")
+                
+                # 3. Después de la iteración central
+                if i > (L+1)//2 and i < L:
+                    if j > 0 and j < j_max:
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j-1}{k}", "input")
+                    
+                    if j == j_max:
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"coupler{i+1}{j-2}{k}1", "input 2")
+                
+                # 4. Última iteración
+                if i == L and j != 0:
+                    ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+    
+    # ==================== MESHES IMPARES (dim % 2 == 1) ====================
+    else:
+        for i in range(L + 1):  
+            j_max = 2 * min(i, L - i) + (1 if i > (L // 2) else 0)
+            
+            for j in range(j_max + 1):
+                
+                # 1. Iteraciones ANTES de la central
+                if i < (L+1)//2:
+                    if j == 0:  # Fila superior
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"phi{i+1}{j}{k}", "input")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j+1}{k}", "input")
+                    else:  # Elementos interiores
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j+1}{k}", "input")
+                
+                # 2. Iteración CENTRAL (DIFERENTE a meshes pares)
+                if i == (L+1)//2:
+                    # NOTA: NO hay condición para j==0 en meshes impares (diferencia clave con pares)
+                    if j > 0 and j < j_max:
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j-1}{k}", "input")
+                    
+                    if j == j_max:
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"coupler{i+1}{j-2}{k}1", "input 2")
+                
+                # 3. Después de la iteración central
+                if i > (L+1)//2 and i < L:
+                    if j > 0 and j < j_max:
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"phi{i+1}{j-1}{k}", "input")
+                    
+                    if j == j_max:
+                        ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
+                        ic.connect(f"otheta{i}{j}{k}2", "output", f"coupler{i+1}{j-2}{k}1", "input 2")
+                
+                # 4. Última iteración
+                if i == L and j != 0:
+                    ic.connect(f"otheta{i}{j}{k}1", "output", f"coupler{i}{j-1}{k}1", "input 2")
 
 
 def connect_mesh_to_output(k, ic, dimV, dimS, output):
