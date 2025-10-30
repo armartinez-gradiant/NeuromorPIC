@@ -1,82 +1,43 @@
-# matrix_mult_N/testing.py – Mantener INTERCONNECT abierto hasta Ctrl+C
-
-from . import main
-from . import mathfs
+import main # type: ignore
+import mathfs # type: ignore
 
 import numpy as np
+from scipy.stats import ortho_group
 from scipy.stats import unitary_group
+
+import interferometer as itf
 import time
+from scipy.linalg import svd
 import sys
-import os
-import threading
-import signal
+from lumapi_loader import lumapi
+if lumapi is None:
+    sys.exit("No se pudo cargar lumapi.")
 
-# Asegura que Python encuentra lumapi; ajusta a tu versión si cambia la ruta
-sys.path.append(r"C:\Program Files\ANSYS Inc\v251\Lumerical\api\python")
-import lumapi  # noqa: E402
-def main_test():
-    start_time = time.time()
+from main import neural_network_layer
 
-    # Lanza INTERCONNECT con GUI visible.
-    # IMPORTANTE: No uses 'with ... as ic:' para que NO se cierre al salir del bloque.
-    ic = lumapi.INTERCONNECT(hide=False)
+# dim=4
+# u = unitary_group.rvs(dim)
 
-    # Guarda esta ruta si quieres conservar el proyecto
-    save_path = r"C:\Temp\ultima_ejecucion.icp"
-    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+start_time = time.time()
 
-    try:
-        # =========================
-        # PRUEBA SIMPLE: matriz unitaria 4x4
-        # =========================
-        dim = 8
-        u = unitary_group.rvs(dim)
-        v = mathfs.random_vector(dim, normalize="unit")
-
-        print(f"Probando con matriz unitaria {dim}x{dim}")
-        print(f"Matriz es unitaria: {main.is_unitary(u)}")
-
-        # Ejecuta tu pipeline. No cierres ni la sesión ni la app aquí.
-        result = main.MZI_multiplication(u, v, ic=ic, create_circuit=True, graph=False)
-
-        end_time = time.time()
-        print(f"Tiempo transcurrido: {end_time - start_time:.2f}s")
-        print(f"Resultado: {result}")
-
-        # === Mantener el proceso vivo hasta que el usuario presione Ctrl+C ===
-        print("\n\u2705 INTERCONNECT se dejará ABIERTO.")
-        print("   - Revisa la GUI todo lo que quieras.")
-        print("   - Cuando quieras cerrar desde Python: pulsa Ctrl+C en esta consola.\n")
-
-        # Bucle de espera “infinito” (interrumpible por Ctrl+C)
-        stop = threading.Event()
-
-        def handle_sigint(signum, frame):
-            stop.set()
-
-        signal.signal(signal.SIGINT, handle_sigint)
-        # Espera hasta que el usuario presione Ctrl+C
-        while not stop.is_set():
-            stop.wait(timeout=1.0)
-
-    except Exception as e:
-        print(f"[Error] {e}")
-
-    finally:
-        # Al salir (Ctrl+C o excepción), intenta guardar y CERRAR LIMPIO
-        try:
-            ic.save(save_path)
-            print(f"\nProyecto guardado en: {save_path}")
-        except Exception as e_save:
-            print(f"[Aviso] No se pudo guardar el proyecto en {save_path}: {e_save}")
-
-        # Cierre explícito de la sesión (equivalente a appClose)
-        try:
-            ic.close()
-            print("Sesión de INTERCONNECT cerrada correctamente.")
-        except Exception as e_close:
-            print(f"[Aviso] No se pudo cerrar la sesión de INTERCONNECT: {e_close}")
+# path, create_circuit = main.create_matrix_icp(dim)
+# print(path)
+ic = lumapi.INTERCONNECT(hide=False)
 
 
-if __name__ == "__main__":
-    main_test()
+a1=np.random.rand(8,6)
+a2=np.random.rand(3,8)
+v=abs(mathfs.random_vector(np.shape(a1)[1],normalize="unit"))
+# U,S,Vh=svd(a)
+# v_T=main.theoretical_mzi_mult(Vh,v)
+# neural_network_layer(a,0,ic)
+# main.general_MZI_multiplication(a,v,ic=ic,graph=False)
+m=[a1,a2]
+main.optical_neural_network(v,m,ic)
+end_time = time.time()
+# print(f"Elapsed time: {end_time - start_time:.6f} seconds")
+
+# print("Int T", mathfs.complex_to_polar(v_T,square_modulus=True))
+
+
+# main.general_mzi_mesh(a,0,ic,)
